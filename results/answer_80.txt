@@ -1,0 +1,80 @@
+0#"I appreciate that, but I need to finish up my garden before I go."
+1#We need to leave right now, our van's not going anywhere. Can't stay here on foot with this busted up vehicle, it won't help us get out of the way of that wildfire.
+2#"Hello?"
+3#"Are they out of their minds?"
+4#"Oh no, my little ones! Okay, okay... we'll go. We'll just need to gather our stuff quickly."
+5#"Okay."
+6#We're kind of stranded here. Our van's busted up.
+7#"I've made up my mind, so don't expect me to change it now."
+8#"Fine, I'll leave when I'm ready."
+9#No problem, I'll be there soon.
+10#"Alright, we'll make our way."
+11#"Yeah, we can do that."
+12#"Alright."
+13#"I'm afraid I'd rather lose our home than put my family in harm's way."
+14#"Come on, it's not worth the risk."
+15#"Alright."
+16#"Thank goodness! Can't wait to get back on the road and help those in need."
+17#"Okay, thanks for letting us know."
+18#Hello, I'm stuck out here with our van broken down. Can we please send someone to pick us up?
+19#"Alright."
+20#I'll leave."
+21#We're not leaving. This is our home, we've lived here for years. We know these woods like the back of our hand.
+22#"Come on, I've lived here my whole life. I can handle this."
+23#"Well, that's nice of them."
+24#"I'm not going anywhere. This is our home."
+25#"I'm with my husband, and I don't need any assistance."
+26#"I'm not going to leave until I see some actual evidence that our home will burn down if we stay."
+27#"We are."
+28#"I'm not leaving our property on fire."
+29#"I've got too much to finish up here."
+30#Q: How's everyone doing at your end?niki: Thanks for the help, we've got no injuries but our property is badly damaged.
+31#"Alright."
+32#"Hi."
+33#"Look, I've got all my stuff in the van. It's not like it's going anywhere."
+34#We'll stay put if they'll help us get out of here safely.
+35#"I'll stay."
+36#We'll stay put if they can help us rise.
+37#"Absolutely, thank goodness. We were starting to get really worried."
+38#We've had some issues with the van's engine and it's completely shut down now.
+39#"I'm fine, but if I leave now, I'll be wasting my last chance to get everything finished."
+40#"Hi! Everything's fine here, just hanging out with the kiddos. Want to chat about their day?"
+41#"Okay, we're on our way."
+42#"Got it."
+43#"Fine, we'll leave."
+44#"I've got to check on the animals, make sure they're all accounted for."
+45#"We're all good, just waiting for the van to arrive."
+46#"I appreciate that."
+47#"Let me just grab the dog's food and water bowls."
+48#"Alright, thanks for sending someone to help us."
+49#"No, I've got everything."
+50#"Oh no, please hurry! The smoke is getting thicker and it's getting harder for me to see. I think one of the kids needs to go outside, can we get them out of here now?"
+51#"I've been watching this collection for years, and now you're telling me I have to leave?"
+52#Hello, we'll stay put until help arrives.
+53#We'll see where it takes us.
+54#Look, I appreciate your concern, but I'm not going anywhere until my shift is over.
+55#Look, we need to get out of here, but our van is really bad shape.
+56#"Come on, what choice do we have? We'll leave when we want."
+57#"I've said it before, and I'll say it again - I'm not leaving."
+58#I need to keep moving now, our van's busted and some of the people with us have walkers, we can't stay put much longer.
+59#"I'm not leaving."
+60#"I'm not going anywhere."
+61#Hello, is everything okay with little [Baby's Name]? Do you know what's going on?
+62#"I understand where you're coming from, but we've taken precautions to protect ourselves and our home."
+63#"I'm not leaving until we've checked on our garden."
+64#"Got it, will be right there."
+65#"Come on, it's not safe here. I've lived here all my life."
+66#"Okay, I can handle this. Let me get the kids ready."
+67#"Look, I already said this to the drone."
+68#"Alright."
+69#Q:  Okay, what's your status on getting the van repaired or an alternative transportation for the crew?"Alright, I'll get this sorted out."
+70#"We'll stay right where we are."
+71#"Lindsay, ma'am, we're sending a drone over with instructions on how to get your kids to safety. Please follow the drone's guidance and get them out of there as quickly and safely as possible."
+72#"Can we get it fixed or is there another option?"
+73#We're a couple, how many people are there in your residence?
+74#"Absolutely."
+75#"Alright."
+76#"I see what you mean, yes, we'll go."
+77#"I'd rather not leave our property right now, we've taken every precaution to protect it."
+78#Q: Are you and your child okay?"Thank goodness, we're safe."
+79#"Thank goodness."

@@ -1,0 +1,28 @@
+<!-- frontend/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Fire Emergency Chatbot - Select Town Person</title>
+  <link rel="stylesheet" href="styles/globals.css">
+</head>
+<body>
+  <div class="landing-page">
+    <h1>Select a Town Person</h1>
+    <div>
+      <button class="town-person-button" onclick="selectPerson('Bob')">Bob</button>
+      <button class="town-person-button" onclick="selectPerson('Ross')">Ross</button>
+      <button class="town-person-button" onclick="selectPerson('Michelle')">Michelle</button>
+      <button class="town-person-button" onclick="selectPerson('Lindsay')">Lindsay</button>
+      <button class="town-person-button" onclick="selectPerson('Niki')">Niki</button>
+    </div>
+  </div>
+
+  <script>
+    function selectPerson(person) {
+      // Redirect to chat.html with the chosen person's name as a URL parameter.
+      window.location.href = "chat.html?person=" + encodeURIComponent(person);
+    }
+  </script>
+</body>
+</html>
