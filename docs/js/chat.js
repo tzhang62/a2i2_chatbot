@@ -18,9 +18,7 @@ let messages = [];
 let lineCounter = 1;
 
 // API Configuration
-const API_BASE_URL = window.location.hostname === 'localhost' 
-    ? 'http://localhost:8001'
-    : 'https://your-backend-url.com';  // You'll need to update this with your backend server URL
+const API_BASE_URL = 'https://a2i2-chatbot-1.onrender.com';
 
 // Add error handling for backend connection
 async function checkBackendConnection() {
