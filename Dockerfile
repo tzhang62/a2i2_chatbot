@@ -10,9 +10,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ ./backend/
 COPY data_for_train/ ./data_for_train/
 COPY results/ ./results/
+COPY ollama_0220.py ./backend/
 
 # Set environment variables
 ENV A2I2_BASE_DIR=/app
+ENV PYTHONPATH=/app
 
 # Expose the port
 EXPOSE $PORT

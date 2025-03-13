@@ -26,8 +26,8 @@ app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=[
         "localhost",
-        "your-domain.com",
-        "www.your-domain.com"
+        "*.onrender.com",  # Allow all Render.com subdomains
+        "emergency-chatbot-backend.onrender.com"  # Your specific Render domain
     ]
 )
 
