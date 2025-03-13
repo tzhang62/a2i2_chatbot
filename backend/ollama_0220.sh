@@ -1,0 +1,2 @@
+export PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0
+python3 ollama_0220.py -persona /Users/tzhang/projects/A2I2/data_for_train/persona.json -dialogue /Users/tzhang/projects/A2I2/data_for_train/dialogue.json -townperson 'bob' --use-mps

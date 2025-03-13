@@ -1,6 +1,7 @@
 
 import re
 import json
+
 input_file = '/Users/tzhang/ParlAI/parlai/scripts/train_data_output.txt'
 
 def convert_to_target_format(dialogues):

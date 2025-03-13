@@ -1,5 +1,5 @@
 import ollama
-from GeneratorModel import GeneratorModel
+from backend.GeneratorModel import GeneratorModel
 import argparse
 import torch
 import pickle
