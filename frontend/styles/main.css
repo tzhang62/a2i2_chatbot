@@ -102,20 +102,32 @@ body {
 }
 
 .message {
-    margin-bottom: 1rem;
-    padding: 0.8rem;
+    margin: 0.5rem 0;
+    padding: 0.5rem;
     border-radius: var(--border-radius);
-    max-width: 80%;
+    background-color: #f8f9fa;
     position: relative;
+}
+
+.message.clickable {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.message.clickable:hover {
+    background-color: #e9ecef;
+}
+
+.message.active {
+    background-color: #e3f2fd;
+    border-left: 4px solid var(--primary-color);
 }
 
 .message .line-number {
     position: absolute;
-    left: -40px;
-    color: #666;
+    left: -2rem;
+    color: #6c757d;
     font-size: 0.8rem;
-    top: 50%;
-    transform: translateY(-50%);
 }
 
 .message.operator {
@@ -137,6 +149,22 @@ body {
     padding: 1rem;
     gap: 1rem;
     border-top: 1px solid #ddd;
+    align-items: center;
+}
+
+.speaker-toggle-btn {
+    background-color: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: background-color 0.2s;
+    white-space: nowrap;
+}
+
+.speaker-toggle-btn:hover {
+    background-color: #c0392b;
 }
 
 .chat-input-section input {
@@ -185,4 +213,35 @@ body {
 
 .mode-buttons button.active {
     background-color: var(--secondary-color);
-} 
+}
+
+.retrieved-info {
+    padding: 1rem;
+    border-top: 1px solid #ddd;
+    background-color: #f8f9fa;
+    display: none;  /* Hide by default */
+    margin-top: 1rem;
+    border-radius: var(--border-radius);
+}
+
+.retrieved-info.visible {
+    display: block;
+}
+
+.retrieved-info h3 {
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+}
+
+.retrieved-content {
+    font-size: 0.9rem;
+    color: #666;
+    white-space: pre-wrap;
+    max-height: 150px;
+    overflow-y: auto;
+    padding: 0.5rem;
+    background-color: #fff;
+    border-radius: var(--border-radius);
+    border: 1px solid #ddd;
+}

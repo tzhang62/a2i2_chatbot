@@ -1,5 +1,5 @@
 # backend/server.py
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from ollama_0220 import simulate_dual_role_conversation, simulate_interactive_conversation
@@ -66,58 +66,74 @@ async def root():
 @app.get("/persona/{town_person}")
 async def get_persona(town_person: str):
     """Get persona information for a specific town person"""
-    if town_person not in persona_data:
+    # Convert to lowercase for case-insensitive lookup
+    town_person_lower = town_person.lower()
+    if town_person_lower not in persona_data:
         raise HTTPException(status_code=404, detail="Town person not found")
     return {
-        "persona": persona_data.get(town_person, ""),
-        "dialogue_example": dialogue_data.get(town_person, "")
+        "persona": persona_data.get(town_person_lower, ""),
+        "dialogue_example": dialogue_data.get(town_person_lower, "")
     }
 
 @app.post("/chat")
-async def chat(request: ChatRequest):
-    """Handle chat requests in both auto and interactive modes"""
+async def chat(request: Request):
     try:
-        print("Received request:", request)
-        os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
-        town_person = request.townPerson.lower()
-        user_input = request.userInput
-        mode = request.mode.lower()
+        data = await request.json()
+        town_person = data.get("townPerson")
+        # Convert to lowercase for case-insensitive lookup
+        town_person_lower = town_person.lower()
+        user_input = data.get("userInput", "")
+        mode = data.get("mode", "interactive")
 
-        # Validate town person exists
-        if town_person not in persona_data:
-            raise HTTPException(status_code=404, detail="Town person not found")
+        print(f"Received request - town_person: {town_person}, mode: {mode}")
 
-        persona = persona_data[town_person]
-        dialogue = dialogue_data[town_person]
+        if not town_person or town_person_lower not in persona_data:
+            print(f"Invalid town person: {town_person}")
+            return {"error": "Invalid town person"}
 
         if mode == "auto":
-            print('generating_auto')
-            transcript = simulate_dual_role_conversation(persona, town_person, dialogue)
-            return {"response": transcript}
-        elif mode == "interactive_start":
-            # Generate initial operator message
-            print('generating_initial_message')
-            response = simulate_dual_role_conversation(
-                persona=persona,
-                name=town_person,
-                dialogue=dialogue,
-                get_initial_message=True
+            try:
+                print(f"Starting auto mode generation for {town_person}")
+                # Generate the entire conversation at once
+                transcript, retrieved_info = simulate_dual_role_conversation(
+                    persona_data[town_person_lower],
+                    town_person # Keep original case for display
+                )
+                
+                print(f"Generated transcript: {transcript}")
+                print(f"Retrieved info: {retrieved_info}")
+                
+                return {
+                    "transcript": transcript,
+                    "retrieved_info": retrieved_info,
+                    "is_complete": True
+                }
+            except Exception as e:
+                print(f"Error in auto mode generation: {str(e)}")
+                traceback.print_exc()
+                return {"error": f"Error generating conversation: {str(e)}"}
+            
+        elif mode == "interactive":
+            # Handle interactive mode
+            response, retrieved_info = simulate_interactive_conversation(
+                persona_data[town_person_lower],
+                town_person,  # Keep original case for display
+                dialogue_data[town_person_lower],
+                user_input
             )
-            return {"response": response}
+            
+            return {
+                "response": response,
+                "retrieved_info": retrieved_info
+            }
+            
         else:
-            # Interactive mode - use the dedicated function
-            print('generating_interactive')
-            response = simulate_interactive_conversation(
-                persona=persona,
-                name=town_person,
-                dialogue=dialogue,
-                user_input=user_input
-            )
-            return {"response": response}
+            return {"error": "Invalid mode"}
             
     except Exception as e:
+        print(f"Error in chat endpoint: {str(e)}")
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"error": str(e)}
 
 if __name__ == "__main__":
     import uvicorn

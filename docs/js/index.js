@@ -4,7 +4,7 @@ function selectPerson(person) {
     sessionStorage.setItem('selectedPerson', person);
     
     // Fetch the persona data before navigating
-    fetch('http://localhost:8001/persona/' + encodeURIComponent(person))
+    fetch('https://a2i2-chatbot-1.onrender.com/persona/' + encodeURIComponent(person))
         .then(response => response.json())
         .then(data => {
             // Store the persona data
