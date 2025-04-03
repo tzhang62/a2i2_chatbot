@@ -118,6 +118,9 @@ source venv/bin/activate
 git pull
 cd backend
 uvicorn server:app --host 0.0.0.0 --port 8001
+```
+Open another terminal:
+```
 cd frontend
 python -m http.server 8000
 ```
