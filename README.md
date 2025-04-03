@@ -26,7 +26,7 @@ sudo apt-get install python3.8 python3.8-venv
 2. Clone the repository:
 ```bash
 git clone https://github.com/tzhang62/a2i2_chatbot
-cd A2I2
+cd a2i2_chatbot
 ```
 
 3. Create and activate a Python virtual environment with Python 3.8:
