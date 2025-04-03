@@ -112,7 +112,7 @@ A2I2/
 - Port settings: Backend runs on port 8001, frontend on port 3000
 
 ## next time using server
-'''bash
+```bash
 cd A2I2
 source venv/bin/activate
 git pull
@@ -120,8 +120,9 @@ cd backend
 uvicorn server:app --host 0.0.0.0 --port 8001
 cd frontend
 python -m http.server 8000
-'''
-then go to this website: http://localhost:8000
+```
+then go to this website: 
+http://localhost:8000
 
 ## Git Commands
 
