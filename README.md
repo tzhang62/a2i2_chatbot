@@ -25,7 +25,7 @@ sudo apt-get install python3.8 python3.8-venv
 
 2. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/A2I2.git
+git clone https://github.com/tzhang62/a2i2_chatbot
 cd A2I2
 ```
 
