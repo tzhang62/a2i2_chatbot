@@ -201,48 +201,6 @@ class DialogueVectorStore:
             
         return random.choice(responses)
 
-    def simulate_conversation(self, character, current_context):
-        """Generate a response based on character and context."""
-        if character not in self.character_responses:
-            return "Character not found"
-
-        # Determine appropriate response category based on context
-        if "greeting" in current_context.lower():
-            category = 'greetings'
-        elif "evacuation" in current_context.lower():
-            category = 'progression'
-        elif "see" in current_context.lower() or "smoke" in current_context.lower():
-            category = 'observations'
-        elif "goodbye" in current_context.lower():
-            category = 'closing'
-        elif "operator" in current_context.lower():
-            category = 'response_to_operator_greetings'
-        else:
-            category = 'general'
-
-        # Get both character and operator responses
-        char_response = self.get_response(character, category)
-        op_response = self.get_operator_response(category)
-        return char_response, op_response
-
-    def get_most_similar_response(self, generated_response: str, character: str, category: str) -> str:
-        """Find the most similar predefined response to the generated one."""
-        if character not in self.character_responses:
-            return generated_response
-            
-        candidates = self.character_responses[character].get(category, [])
-        if not candidates:
-            return generated_response
-            
-        # Get embeddings
-        generated_embedding = self.encoder.encode(generated_response)
-        candidate_embeddings = self.encoder.encode(candidates)
-        
-        # Calculate similarities
-        similarities = np.dot(candidate_embeddings, generated_embedding)
-        most_similar_idx = np.argmax(similarities)
-        
-        return candidates[most_similar_idx]
 
 class ConversationManager:
     def __init__(self):
@@ -262,9 +220,14 @@ class ConversationManager:
     def get_history(self, session_id: str, max_turns: int = 5) -> str:
         """Get formatted conversation history."""
         if session_id not in self.conversations:
+            print(f"No conversation found for session ID: {session_id}")
             return ""
             
         history = self.conversations[session_id][-max_turns:]
+        print(f"Found {len(history)} messages for session ID: {session_id}")
+        for i, msg in enumerate(history):
+            print(f"Message {i+1}: {msg['speaker']}: {msg['content']}")
+        
         return "\n".join([f"{msg['speaker']}: {msg['content']}" for msg in history])
 
 # Initialize global instances
@@ -274,10 +237,12 @@ conversation_manager = ConversationManager()
 # Load dialogues if the file exists
 dialogue_file = '/Users/tzhang/projects/A2I2/data_for_train/characterlines.jsonl'
 if os.path.exists(dialogue_file):
-    print(f"Loading dialogues from {dialogue_file}")
+    
     vector_store.add_dialogues(dialogue_file)
+   
 else:
-    print(f"Warning: Dialogue file not found at {dialogue_file}")
+    logging.error(f"Warning: Dialogue file not found at {dialogue_file}")
+    logging.error(f"Current working directory: {os.getcwd()}")
 
 def format_context(retrieved_dialogues: List[Dict], character: str = None) -> str:
     """Format retrieved dialogues into context string."""
@@ -306,6 +271,7 @@ Current conversation history:
 
 Based on {name}'s background and the conversation examples, generate a natural and contextually appropriate {speaker} response.
 Remember to maintain a professional and reassuring tone while addressing the emergency situation.
+For {name}'s responses, make sure to reference and follow the style of the example responses provided.
 
 Format your output as a direct response without any name prefix or additional context."""
 
@@ -518,264 +484,152 @@ def simulate_dual_role_conversation(
             history=history
         )
         
-        print(f"\nGenerating response for {turn['speaker']}...")
+        # print(f"\nGenerating response for {turn['speaker']}...")
         response = clean_response(send_to_ollama(prompt))
-        print(f"Generated response: {response}")
+        # print(f"Generated response: {response}")
         print("-" * 50)
         
         conversation_manager.add_message(session_id, turn["speaker"], response)
         history += f"{turn['speaker']}: {response}\n"
+        
+        # Add the response to conversation history
+        response_speaker = name  # In interactive mode, response always comes from town person
+        conversation_manager.add_message(session_id, response_speaker, response)
+        # print(f'Added response to history: {response_speaker}: {response}')
     
     print("\n=== Final Conversation ===")
     print(history)
     return history, retrieved_info_list
 
-def generate_response(user_input, context, town_person, persona):
-    """Generate a response using the LLM."""
-    prompt = """System: You are {name} responding to a Fire Department Agent during an emergency.
-    Based on your background: {persona}
-    
-    Relevant examples:
-    {context}
-    
-    Current conversation:
-    {history}
-    
-    Generate a single-sentence response that reflects your character's background and the current situation.
-    Keep your response to one brief sentence.
-    
-    Format your output as a direct response without any prefix.""".format(
-        name=town_person,
-        persona=persona,
-        context=context,
-        history=user_input
-    )
-    return clean_response(send_to_ollama(prompt))
-
-def simulate_interactive_conversation(town_person, user_input, speaker, persona):
-    """Simulate an interactive conversation with the user."""
-    try:
-        # Get character responses for the town person
-        character_responses = vector_store.character_responses.get(town_person, {})
-        
-        # Get operator responses
-        operator_responses = vector_store.operator_responses
-        
-        # Determine the category based on the conversation flow
-        if not user_input:  # Initial message
-            category = 'greetings'
-            responses = operator_responses.get('greetings', [])
-            context = f"Category: {category}\nSpeaker: Operator\n\nExample responses:\n" + "\n".join([f"- {response}" for response in responses])
-            prompt = prompt_rag.format(
-                name=town_person,
-                persona=persona,
-                context=context,
-                history="",
-                speaker="Agent"
-            )
-            response = clean_response(send_to_ollama(prompt))
-            return response, context
+name = 'bob'
+conversation_structure = [
+        {
+            "speaker": name,
+            "prompt": """System: You are {name} responding to a Fire Department Agent during an emergency.
+            Based on your background: {persona}
             
-        # For subsequent messages, determine category based on speaker and context
-        if speaker == 'Operator':
-            # Operator's conversation flow
-            if any(word in user_input.lower() for word in ['hello', 'hi', 'hey']):
-                category = 'greetings'
-                responses = operator_responses.get('greetings', [])
-                prompt = """System: You are a Fire Department Agent responding to {name}'s reluctance to evacuate.
-                Based on these example responses:
-                {context}
-                
-                Generate a single-sentence urgent warning about the fire danger.
-                Keep your response to one brief sentence that matches the professional and authoritative tone of the examples.
-                
-                Current conversation:
-                {history}
-                
-                Format your output as a direct response without any prefix."""
-            elif any(word in user_input.lower() for word in ['evacuate', 'leave', 'go']):
-                category = 'progression'
-                responses = operator_responses.get('progression', [])
-                prompt = """System: You are a Fire Department Agent making a final plea about life safety.
-                Based on these example responses:
-                {context}
-                
-                Generate a single-sentence response emphasizing life over property.
-                Keep your response to one brief sentence that matches the professional and authoritative tone of the examples.
-                
-                Current conversation:
-                {history}
-                
-                Format your output as a direct response without any prefix."""
-            elif any(word in user_input.lower() for word in ['goodbye', 'bye', 'thanks']):
-                category = 'closing'
-                responses = operator_responses.get('closing', [])
-                prompt = """System: You are a Fire Department Agent responding to {name}'s agreement to evacuate.
-                Based on these example responses:
-                {context}
-                
-                Generate a single-sentence response about the importance of evacuating.
-                Keep your response to one brief sentence that matches the professional and authoritative tone of the examples.
-                
-                Current conversation:
-                {history}
-                
-                Format your output as a direct response without any prefix."""
-            else:
-                category = 'general'
-                responses = operator_responses.get('general', [])
-                prompt = """System: You are a Fire Department Agent speaking with {name} during a fire emergency.
-                Based on these example responses:
-                {context}
-                
-                Generate a single-sentence response that maintains a professional and authoritative tone.
-                Keep your response to one brief sentence that matches the examples.
-                
-                Current conversation:
-                {history}
-                
-                Format your output as a direct response without any prefix."""
-        else:  # Bob's conversation flow
-            if any(word in user_input.lower() for word in ['hello', 'hi', 'hey']):
-                category = 'response_to_operator_greetings'
-                responses = character_responses.get('response_to_operator_greetings', [])
-                prompt = """System: You are {name} responding to a Fire Department Agent during an emergency.
-                Based on your background: {persona}
-                
-                Relevant examples:
-                {context}
-                
-                Generate a single-sentence response showing initial resistance to evacuation.
-                Keep your response to one brief sentence that reflects your character's background.
-                
-                Current conversation:
-                {history}
-                
-                Format your output as a direct response without any prefix."""
-            elif any(word in user_input.lower() for word in ['evacuate', 'leave', 'go']):
-                category = 'progression'
-                responses = character_responses.get('progression', [])
-                prompt = """System: You are {name} still showing resistance to evacuation.
-                Based on your background: {persona}
-                
-                Relevant examples:
-                {context}
-                
-                Generate a single-sentence response expressing specific concerns based on your background.
-                Keep your response to one brief sentence that reflects your character's background.
-                
-                Current conversation:
-                {history}
-                
-                Format your output as a direct response without any prefix."""
-            elif any(word in user_input.lower() for word in ['goodbye', 'bye', 'thanks']):
-                category = 'closing'
-                responses = character_responses.get('closing', [])
-                prompt = """System: You are {name} finally agreeing to evacuate.
-                Based on your background: {persona}
-                
-                Relevant examples:
-                {context}
-                
-                Generate a single-sentence response showing your agreement to evacuate.
-                Keep your response a few words.
-                
-                Current conversation:
-                {history}
-                
-                Format your output as a direct response without any prefix."""
-            else:
-                category = 'general'
-                responses = character_responses.get('general', [])
-                prompt = """System: You are {name} speaking with a Fire Department Agent during an emergency.
-                Based on your background: {persona}
-                
-                Relevant examples:
-                {context}
-                
-                Generate a single-sentence response that reflects your character's background.
-                Keep your response to one brief sentence.
-                
-                Current conversation:
-                {history}
-                
-                Format your output as a direct response without any prefix."""
-        
-        # Format context for the response
-        context = f"Category: {category}\nSpeaker: {speaker}\n\nExample responses:\n" + "\n".join([f"- {response}" for response in responses])
-        
-        # Generate response using the appropriate prompt
-        response = clean_response(send_to_ollama(prompt.format(
-            name=town_person,
+            Relevant examples:
+            {context}
+            
+            Generate a single-sentence response showing initial resistance to evacuation.
+            Keep your response to one brief sentence that reflects your character's background.
+            
+            Current conversation:
+            {history}
+            
+            Format your output as a direct response without any prefix.""",
+            "category": "response_to_operator_greetings"
+        },
+        {
+            "speaker": name,
+            "prompt": """System: You are {name} still showing resistance to evacuation.
+            Based on your background: {persona}
+            
+            Relevant examples:
+            {context}
+            
+            Generate a single-sentence response expressing specific concerns based on your background.
+            Keep your response to one brief sentence that reflects your character's background.
+            
+            Current conversation:
+            {history}
+            
+            Format your output as a direct response without any prefix.""",
+            "category": "response_to_operator_greetings"
+        },
+        {
+            "speaker": name,
+            "prompt": """System: You are {name} starting to agree to evacuate.
+            Based on your background: {persona}
+            
+            Relevant examples:
+            {context}
+            
+            Generate a single-sentence response showing your agreement to evacuate.
+            Keep your response to one brief sentence that reflects your character's background.
+            
+            Current conversation:
+            {history}
+            
+            Format your output as a direct response without any prefix.""",
+            "category": "progression"
+        },
+        {
+            "speaker": name,
+            "prompt": """System: You are {name} finally agreeing to evacuate.
+            Based on your background: {persona}
+            
+            Relevant examples:
+            {context}
+            
+            Generate a single-sentence response showing your agreement to evacuate.
+            Keep your response a few words.
+            
+            Current conversation:
+            {history}
+            
+            Format your output as a direct response without any prefix.""",
+            "category": "closing"
+        }
+    ]
+
+
+def simulate_interactive_single_turn(town_person, user_input, speaker, persona, turn, session_id=None):
+    """Handle interactive conversation mode."""
+    # Convert name to lowercase for character matching
+    name = town_person.lower()  # Always use 'bob' as the key for retrieving responses
+    character = town_person.lower()
+    
+    # Use provided session_id or create a new one
+    if session_id is None:
+        session_id = f"{name}_{int(time.time())}"
+    
+    # First add the user input to conversation history if provided
+    # if user_input:
+    #     conversation_manager.add_message(session_id, speaker, user_input)
+    #     print(f"Added user input to history: {user_input}")
+    
+    # Then get the complete history INCLUDING the just-added message
+    history = conversation_manager.get_history(session_id)
+    print(f'Current history after adding user input: {history}')
+   
+    # Get responses based on speaker
+    if speaker == "Operator":
+        responses = vector_store.operator_responses.get(turn["category"], [])
+    else:
+        responses = vector_store.character_responses[character.lower()].get(turn["category"], [])
+    
+    context = f"Category: {turn['category']}\nSpeaker: {name}\n\nExample responses:\n" + "\n".join([f"- {response}" for response in responses])
+    #print(f'category: {turn["category"]}, session_id: {session_id}, history lines: {(history.count()+1) if history else 0}')
+    prompt = turn["prompt"].format(
+            name=name,
             persona=persona,
             context=context,
-            history=user_input
-        )))
-        
-        return response, context
-        
-    except Exception as e:
-        print(f"Error in interactive conversation: {str(e)}")
-        return "I apologize, but I'm having trouble processing your message.", None
+            history=history
+        )
 
-# class OllamaModel(GeneratorModel):
-    # def __init__(self, model_name, retriever_index=None, document_file=None, device=None):
-    #     """
-    #     Initialize the Ollama model with the retriever.
-    #     :param model_name: The name of the Ollama model to use.
-    #     :param retriever: An instance of the retrieval model to fetch relevant documents.
-    #     """
-    #     self.model_name = model_name
-    #     self.device = device
+    response = clean_response(send_to_ollama(prompt))
 
-    #       # Initialize the Ollama model
-    #     self.model = OllamaModel(model_name="deepseek-r1:7b")
-    #     self.model = self.model.to(device)
-
-
-
-    # def query(self, question):
-    #     """
-    #     Query the Ollama model with retrieved context and a question.
-    #     :param question: The user's question.
-    #     :param top_k: The number of top retrieved documents to include as context.
-    #     :return: Generated answer from the Ollama model.
-    #     """
-        
-    #     prompt = PROMPT.format(question=question)
-
-    #     # Query the Ollama model
-    #     response = ollama.chat(model=self.model_name, messages=[{
-    #         'role': 'user',
-    #         'content': prompt,
-    #     }])
-
-    #     # Extract and return the answer
-    #     print(response['message']['content'])
-    #     return response['message']['content']
+    # Determine the response speaker (opposite of input speaker)
+    response_speaker = name  # In interactive mode, response always comes from town person
     
-    # def generate_and_save_answers(self,questions_file, output_file, k=5):
-    #     """
-    #     Generate concise answers for questions and save them to a file.
-    #     :param questions_file: Path to the file containing questions.
-    #     :param output_file: Path to the file to save generated answers.
-    #     :param k: Number of top results to use for context.
-    #     """
-    #     with open(questions_file, "r") as qf, open(output_file, "w") as outfile:
-    #         i = 0
-    #         for line in qf:
-    #             if i > 0 and i < 101:
-    #                 record = json.loads(line.strip())
-    #                 question = record['question']
-    #                 answer = OllamaModel.query(question)
-    #                 #import pdb; pdb.set_trace()
-    #                 print(i,answer)
-    #                 outfile.write(str(i) + "#" + answer + "\n")
-    #             i+=1
-    #     print(f"Generated answers saved to {output_file}")
+    retrieved_info = {
+        'speaker': response_speaker,
+        'category': turn["category"],
+        'examples': responses,
+        'context': context
+    }
+    
+    # Add the response to conversation history
+    # conversation_manager.add_message(session_id, response_speaker, response)
+    # print(f'Added response to history: {response_speaker}: {response}')
+    
+    # Get updated history count for debugging
+    updated_history = conversation_manager.get_history(session_id)
+    print(f'Updated history after adding response: {updated_history}')
+    # print(f'Total messages in conversation: {updated_history.count()+1 if updated_history else 0}')
 
-
-
+    return response, retrieved_info
 
 # Example Usage
 if __name__ == "__main__":
