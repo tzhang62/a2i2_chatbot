@@ -50,7 +50,6 @@ pip install -r requirements.txt
 5. Install frontend dependencies:
 ```bash
 cd ../frontend
-npm install
 ```
 
 ## Running the Application
