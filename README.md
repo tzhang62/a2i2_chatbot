@@ -25,8 +25,8 @@ sudo apt-get install python3.8 python3.8-venv
 
 2. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/A2I2.git
-cd A2I2
+git clone https://github.com/tzhang62/a2i2_chatbot
+cd a2i2_chatbot
 ```
 
 3. Create and activate a Python virtual environment with Python 3.8:
@@ -50,7 +50,6 @@ pip install -r requirements.txt
 5. Install frontend dependencies:
 ```bash
 cd ../frontend
-npm install
 ```
 
 ## Running the Application
@@ -118,6 +117,9 @@ source venv/bin/activate
 git pull
 cd backend
 uvicorn server:app --host 0.0.0.0 --port 8001
+```
+Open another terminal:
+```
 cd frontend
 python -m http.server 8000
 ```
