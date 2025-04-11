@@ -320,7 +320,7 @@ async def chat(request: Request):
                     if history and message_count > 0 and speaker == "Operator":
                         last_message = user_input.lower()
                         # Check if message emphasizes fire danger
-                        if any(keyword in last_message for keyword in ["danger", "fire", "emergency", "leave now", "life-threatening"]):
+                        if any(keyword in last_message for keyword in ["danger", "fire", "emergency", "threatening",'die']):
                             emphasizes_danger = True
                         # Check if message emphasizes that work is not worth the risk
                         if any(keyword in last_message for keyword in ["not worth", "work isn't worth", "nothing is worth", "life"]):
