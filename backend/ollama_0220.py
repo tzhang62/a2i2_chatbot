@@ -587,20 +587,20 @@ def simulate_interactive_single_turn(town_person, user_input, speaker, persona, 
     # First add the user input to conversation history if provided
     # if user_input:
     #     conversation_manager.add_message(session_id, speaker, user_input)
-    #     print(f"Added user input to history: {user_input}")
+    #     print(f"Added user input to history: {speaker}: {user_input}")
     
     # Then get the complete history INCLUDING the just-added message
     history = conversation_manager.get_history(session_id)
     print(f'Current history after adding user input: {history}')
    
     # Get responses based on speaker
-    if speaker == "Operator":
+    if speaker == "Operator" or speaker == "Julie":
         responses = vector_store.operator_responses.get(turn["category"], [])
     else:
         responses = vector_store.character_responses[character.lower()].get(turn["category"], [])
     
     context = f"Category: {turn['category']}\nSpeaker: {name}\n\nExample responses:\n" + "\n".join([f"- {response}" for response in responses])
-    #print(f'category: {turn["category"]}, session_id: {session_id}, history lines: {(history.count()+1) if history else 0}')
+    #print(f'category: {turn["category"]}, session_id: {session_id}, history lines: {(history.count("\n")+1) if history else 0}')
     prompt = turn["prompt"].format(
             name=name,
             persona=persona,
@@ -621,13 +621,13 @@ def simulate_interactive_single_turn(town_person, user_input, speaker, persona, 
     }
     
     # Add the response to conversation history
-    # conversation_manager.add_message(session_id, response_speaker, response)
-    # print(f'Added response to history: {response_speaker}: {response}')
+    conversation_manager.add_message(session_id, response_speaker, response)
+    print(f'Added response to history: {response_speaker}: {response}')
     
     # Get updated history count for debugging
     updated_history = conversation_manager.get_history(session_id)
     print(f'Updated history after adding response: {updated_history}')
-    # print(f'Total messages in conversation: {updated_history.count()+1 if updated_history else 0}')
+    #print(f'Total messages in conversation: {updated_history.count("\n")+1 if updated_history else 0}')
 
     return response, retrieved_info
 

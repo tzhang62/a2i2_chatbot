@@ -151,6 +151,68 @@ Example commit messages:
 - "Update: Modify conversation flow logic"
 - "Fix: Resolve error message display issue"
 
+
+┌─────────────────────────────────────────────────────────────────┐
+│                   CONVERSATION INITIALIZATION                    │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ STAGE 1: INITIAL DISMISSAL (message_count == 1)                 │
+│ Category: "response_to_operator_greetings"                      │
+│ • Bob dismisses evacuation warnings                             │
+│ • Different response if from Julie (more dismissive)            │
+│ • Slightly more responsive if from Operator                     │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ STAGE 2: WORK-FOCUSED RESISTANCE (message_count <= 7)           │
+│ Category: "work_resistance"                                     │
+│ • Bob emphasizes work/collection importance                     │
+│ • Skeptical about fire danger                                   │
+│ • Refuses to leave work behind                                  │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ STAGE 3: DECISION POINT (message_count <= 10)                   │
+└───────────────────┬─────────────────────────┬───────────────────┘
+                    │                         │
+            ┌───────▼────────┐      ┌─────────▼───────┐
+            │ If Operator    │      │ If NOT Both     │
+            │ emphasizes:    │      │ Conditions Met  │
+            │ • Fire danger  │      │                 │
+            │ • Life > Work  │      │                 │
+            └───────┬────────┘      └─────────┬───────┘
+                    │                         │
+            ┌───────▼────────┐      ┌─────────▼───────┐
+            │ CONSIDERING    │      │ MINIMAL         │
+            │ EVACUATION     │      │ ENGAGEMENT      │
+            │ Category:      │      │ Category:       │
+            │ "decision_point"│      │ "minimal_       │
+            │                │      │  engagement"    │
+            └───────┬────────┘      └─────────┬───────┘
+                    │                         │
+                    ▼                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ STAGE 4: FINAL RESOLUTION (message_count > 10)                  │
+└───────────────────┬─────────────────────────┬───────────────────┘
+                    │                         │
+            ┌───────▼────────┐      ┌─────────▼───────┐
+            │ If Operator    │      │ If NOT Both     │
+            │ emphasizes:    │      │ Conditions Met  │
+            │ • Fire danger  │      │                 │
+            │ • Life > Work  │      │                 │
+            └───────┬────────┘      └─────────┬───────┘
+                    │                         │
+            ┌───────▼────────┐      ┌─────────▼───────┐
+            │ AGREES TO      │      │ FINAL REFUSAL   │
+            │ EVACUATE       │      │ TO EVACUATE     │
+            │ Category:      │      │ Category:       │
+            │ "progression"  │      │ "final_refusal" │
+            └────────────────┘      └─────────────────┘
+
 ## License
 
 [Your License Here]

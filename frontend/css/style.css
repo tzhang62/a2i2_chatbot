@@ -1,0 +1,50 @@
+/* Julie Status and Hints */
+.julie-status, .julie-hint, .julie-error {
+    margin: 10px 20px;
+    padding: 10px;
+    border-radius: 8px;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.julie-status {
+    display: flex;
+    align-items: center;
+    background-color: rgba(0, 123, 255, 0.1);
+    color: #0056b3;
+    font-style: italic;
+}
+
+.julie-status .spinner-grow {
+    margin-right: 10px;
+}
+
+.julie-hint .alert {
+    margin-bottom: 0;
+    padding: 10px 15px;
+}
+
+.julie-error .alert {
+    margin-bottom: 0;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Auto Julie Toggle Button */
+.auto-julie-toggle {
+    display: flex;
+    align-items: center;
+    margin: 10px 0;
+}
+
+.auto-julie-toggle .form-check-label {
+    margin-left: 8px;
+    font-weight: 500;
+}
+
+.form-check-input:checked {
+    background-color: #28a745;
+    border-color: #28a745;
+} 

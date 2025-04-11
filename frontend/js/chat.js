@@ -5,28 +5,254 @@ const sendBtn = document.getElementById('send-btn');
 const autoModeBtn = document.getElementById('auto-mode-btn');
 const interactiveModeBtn = document.getElementById('interactive-mode-btn');
 const chatInputSection = document.getElementById('chat-input-section');
-const retrievedContent = document.getElementById('retrieved-content');
-const retrievedInfo = document.getElementById('retrieved-info');
 const speakerToggleBtn = document.getElementById('speaker-toggle-btn');
+const retrievedInfo = document.getElementById('retrieved-info');
+const retrievedContent = document.getElementById('retrieved-content');
 
 // Get selected person from session storage
 const selectedPerson = sessionStorage.getItem('selectedPerson');
 const personaData = JSON.parse(sessionStorage.getItem('personaData'));
 
-// Track current speaker
-let currentSpeaker = 'Operator';
-
 // Update chat title
 document.getElementById('chat-title').textContent = `Chat with ${selectedPerson} as Emergency Operator`;
 
 let isAutoMode = false;
+let useJulie = false; // Flag to determine if Julie should interact
 let messages = [];
 let lineCounter = 1;
+let currentSpeaker = 'Operator'; // Default speaker
+
+// Add interaction mode toggle
+const interactionModeContainer = document.createElement('div');
+interactionModeContainer.id = 'interaction-mode-container';
+interactionModeContainer.className = 'interaction-mode-container';
+interactionModeContainer.innerHTML = `
+    <p>Interaction Mode:</p>
+    <div class="toggle-buttons">
+        <button id="direct-mode-btn" class="active">Direct Interaction</button>
+        <button id="julie-mode-btn">Let Julie Handle</button>
+    </div>
+`;
+
+// Create Julie mode options container (initially hidden)
+const julieOptionsContainer = document.createElement('div');
+julieOptionsContainer.id = 'julie-options-container';
+julieOptionsContainer.className = 'julie-options-container';
+julieOptionsContainer.style.display = 'none';
+julieOptionsContainer.innerHTML = `
+    <p>Julie Mode:</p>
+    <div class="toggle-buttons">
+        <button id="auto-julie-btn" class="active">Auto Julie</button>
+        <button id="manual-julie-btn">Type as Julie</button>
+    </div>
+`;
+
+// Insert interaction mode toggle after chat input section
+chatInputSection.parentNode.insertBefore(interactionModeContainer, chatInputSection.nextSibling);
+// Insert Julie options after interaction mode container
+interactionModeContainer.parentNode.insertBefore(julieOptionsContainer, interactionModeContainer.nextSibling);
+
+// Get references to new buttons
+const directModeBtn = document.getElementById('direct-mode-btn');
+const julieModeBtn = document.getElementById('julie-mode-btn');
+const autoJulieBtn = document.getElementById('auto-julie-btn');
+const manualJulieBtn = document.getElementById('manual-julie-btn');
+
+// Flag for Julie auto mode
+let isAutoJulie = true;
+
+// Add event listeners for interaction mode buttons
+directModeBtn.addEventListener('click', () => {
+    useJulie = false;
+    directModeBtn.classList.add('active');
+    julieModeBtn.classList.remove('active');
+    julieOptionsContainer.style.display = 'none';
+    speakerToggleBtn.style.display = 'block'; // Show the speaker toggle when in direct mode
+    chatInput.placeholder = `Type your message as ${currentSpeaker}...`;
+    chatInputSection.style.display = 'flex'; // Always show chat input in direct mode
+});
+
+julieModeBtn.addEventListener('click', () => {
+    useJulie = true;
+    julieModeBtn.classList.add('active');
+    directModeBtn.classList.remove('active');
+    julieOptionsContainer.style.display = 'flex'; // Show Julie options
+    speakerToggleBtn.style.display = 'none'; // Hide the speaker toggle when Julie is active
+    updateJulieMode(); // Update based on current Julie mode
+});
+
+// Add event listeners for Julie mode options
+autoJulieBtn.addEventListener('click', () => {
+    isAutoJulie = true;
+    autoJulieBtn.classList.add('active');
+    manualJulieBtn.classList.remove('active');
+    updateJulieMode();
+});
+
+manualJulieBtn.addEventListener('click', () => {
+    isAutoJulie = false;
+    manualJulieBtn.classList.add('active');
+    autoJulieBtn.classList.remove('active');
+    updateJulieMode();
+});
+
+// Function to update UI based on Julie mode
+function updateJulieMode() {
+    if (isAutoJulie) {
+        chatInputSection.style.display = 'none'; // Hide input when Auto Julie is active
+        if (messages.length > 0) { // Don't auto-generate if no messages yet
+            generateJulieResponse(); // Auto-generate Julie's response
+        }
+    } else {
+        chatInputSection.style.display = 'flex'; // Show input for Manual Julie
+        chatInput.placeholder = 'Type as Julie...';
+    }
+}
+
+// Function to generate Julie's response automatically
+async function generateJulieResponse() {
+    // Don't generate if already generating or auto Julie is off
+    if (isGenerating || !isAutoJulie) {
+        return;
+    }
+
+    isGenerating = true;
+    
+    // Clear previous hints
+    const statusElement = document.getElementById('julieStatus');
+    if (statusElement) {
+        statusElement.remove();
+    }
+    
+    // Show loading message with more context
+    const loadingMessage = document.createElement('div');
+    loadingMessage.id = 'julieStatus';
+    loadingMessage.classList.add('julie-status');
+    
+    // More informative loading message
+    loadingMessage.innerHTML = '<div class="spinner-grow spinner-grow-sm text-info" role="status"></div> Julie is composing a message to convince the town person to evacuate...';
+    
+    chatWindow.appendChild(loadingMessage);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+
+    // Call API to generate Julie's response
+    fetch(`${API_BASE_URL}/chat`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            townPerson: selectedPerson,
+            userInput: "",
+            mode: "interactive",
+            speaker: "Julie",
+            autoJulie: true
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        isGenerating = false;
+        
+        // Check if data is null or undefined before accessing properties
+        if (!data) {
+            throw new Error('Received null or undefined response from server');
+        }
+        
+        // Check for error in response
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        // Get julieResponse and town person response
+        const julieResponse = data.julieResponse;
+        const townPersonResponse = data.response;
+        
+        // Determine conversation stage from the response category
+        const category = data.category || '';
+        let stage = "initial";
+        if (category.includes("followup")) {
+            stage = "followup";
+        } else if (category.includes("urgent")) {
+            stage = "urgent";
+        } else if (category.includes("final")) {
+            stage = "final";
+        }
+        
+        // Remove loading indicator
+        const statusElement = document.getElementById('julieStatus');
+        if (statusElement) {
+            statusElement.remove();
+        }
+        
+        // Add Julie's message
+        if (julieResponse) {
+            addMessage("Julie", julieResponse);
+        }
+        
+        // Add town person's response
+        if (townPersonResponse) {
+            addMessage(selectedPerson, townPersonResponse, data.retrieved_info);
+        }
+        
+        // Add contextual hint based on conversation stage
+        const hintElement = document.createElement('div');
+        hintElement.id = 'julieStatus';
+        hintElement.classList.add('julie-hint');
+        
+        if (stage === "final") {
+            // Final stage - let user know this is critical
+            hintElement.innerHTML = `<div class="alert alert-danger">
+                <strong>Final Stage:</strong> Auto Julie has made her final appeal. The town person is still resistant. 
+                <br>You should step in now to make the final convincing argument!
+            </div>`;
+        } else {
+            // Other stages - show appropriate hints
+            const stageMap = {
+                "initial": "Initial contact made",
+                "followup": "Follow-up persuasion",
+                "urgent": "Urgent appeal"
+            };
+            
+            hintElement.innerHTML = `<div class="alert alert-info">
+                <strong>${stageMap[stage]}:</strong> 
+                ${stage !== "initial" ? "Auto Julie is continuing the conversation." : "Auto Julie has initiated contact."}
+                <br>You can let Auto Julie continue or take over at any time.
+            </div>`;
+        }
+        
+        chatWindow.appendChild(hintElement);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+        
+        // If not in final stage, auto-continue after delay
+        if (stage !== "final" && isAutoJulie) {
+            setTimeout(() => {
+                generateJulieResponse();
+            }, 5000); // 5 second delay before next auto response
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        isGenerating = false;
+        
+        // Remove loading indicator
+        const statusElement = document.getElementById('julieStatus');
+        if (statusElement) {
+            statusElement.remove();
+        }
+        
+        // Show error message
+        const errorElement = document.createElement('div');
+        errorElement.id = 'julieStatus';
+        errorElement.classList.add('julie-error');
+        errorElement.innerHTML = '<div class="alert alert-danger">Error generating Julie\'s response: ' + error.message + '. Please try again or take over the conversation.</div>';
+        
+        chatWindow.appendChild(errorElement);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    });
+}
 
 // API Configuration
-const API_BASE_URL = window.location.hostname === 'localhost' 
-    ? 'http://localhost:8001'
-    : 'https://your-domain.com:8001';  // Replace with your actual domain
+const API_BASE_URL = 'http://localhost:8001';
 
 // Function to toggle speaker
 function toggleSpeaker() {
@@ -35,50 +261,24 @@ function toggleSpeaker() {
     chatInput.placeholder = `Type ${currentSpeaker}'s message...`;
 }
 
-// Function to display retrieved information
-function displayRetrievedInfo(info) {
-    console.log('Displaying retrieved info:', info);
-    if (info) {
-        // Format the retrieved information
-        let formattedInfo = '';
-        if (typeof info === 'object') {
-            if (info.context) {
-                formattedInfo = info.context;
-            } else if (info.examples) {
-                formattedInfo = `Category: ${info.category || 'Unknown'}\nSpeaker: ${info.speaker || 'Unknown'}\n\nExample responses:\n` + 
-                    info.examples.map(ex => `- ${ex}`).join('\n');
-            } else {
-                formattedInfo = JSON.stringify(info, null, 2);
-            }
-        } else {
-            formattedInfo = info.toString();
+// Add error handling for backend connection
+async function checkBackendConnection() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/persona/bob`);
+        if (!response.ok) {
+            throw new Error('Backend connection failed');
         }
-        
-        retrievedContent.textContent = formattedInfo;
-        retrievedInfo.classList.add('visible');
-        retrievedInfo.style.display = 'block';
-    } else {
-        retrievedContent.textContent = '';
-        retrievedInfo.classList.remove('visible');
-        retrievedInfo.style.display = 'none';
+    } catch (error) {
+        console.error('Backend connection error:', error);
+        // addMessage('Warning: Cannot connect to the backend server. The chat functionality may be limited.', 'System');
     }
 }
 
-// Function to handle message click
-function handleMessageClick(messageDiv, retrievedInfo) {
-    console.log('Message clicked, retrieved info:', retrievedInfo);
-    // Remove active class from all messages
-    document.querySelectorAll('.message').forEach(msg => msg.classList.remove('active'));
-    
-    // Add active class to clicked message
-    messageDiv.classList.add('active');
-    
-    // Display retrieved information
-    displayRetrievedInfo(retrievedInfo);
-}
+// Check backend connection when page loads
+checkBackendConnection();
 
 // Function to add a message to the chat
-function addMessage(text, sender, retrievedInfo = null) {
+function addMessage(text, sender, retrievedInfo) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${sender.toLowerCase()}`;
     
@@ -93,30 +293,80 @@ function addMessage(text, sender, retrievedInfo = null) {
     content.innerHTML = `<strong>${sender}:</strong> ${text}`;
     messageDiv.appendChild(content);
     
-    // Add click handler if there's retrieved info
-    if (retrievedInfo) {
-        messageDiv.addEventListener('click', () => handleMessageClick(messageDiv, retrievedInfo));
-        messageDiv.classList.add('clickable');
+    // Check if this is a conversation-ending message
+    if (text.toLowerCase().includes("okay") || text.toLowerCase().includes("fine") || 
+        text.toLowerCase().includes("alright") || text.toLowerCase().includes("sure") || 
+        text.toLowerCase().includes("ok")) {
+        messageDiv.classList.add('conversation-end');
+        // Add a visual indicator for conversation end
+        const endIndicator = document.createElement('div');
+        endIndicator.className = 'conversation-end-indicator';
+        endIndicator.innerHTML = '<i class="fas fa-flag-checkered"></i> Conversation Ended';
+        messageDiv.appendChild(endIndicator);
+        
+        // Disable input after conversation ends
+        chatInput.disabled = true;
+        sendBtn.disabled = true;
+        chatInput.placeholder = 'Conversation has ended';
     }
     
     chatWindow.appendChild(messageDiv);
     chatWindow.scrollTop = chatWindow.scrollHeight;
-    messages.push({ 
-        sender, 
-        text, 
-        lineNumber: lineCounter - 1,
-        retrievedInfo 
-    });
+    messages.push({ sender, text, lineNumber: lineCounter - 1 });
+
+    // Show retrieved info if available
+    if (retrievedInfo) {
+        showRetrievedInfo(retrievedInfo);
+    }
 }
 
-// Function to reset line counter and clear retrieved info
+// Function to show retrieved info
+function showRetrievedInfo(info) {
+    if (!info) return;
+    retrievedContent.innerHTML = '';
+    
+    // Check if this is a Bob response with full prompt
+    const hasBobPrompt = info.speaker?.toLowerCase() === 'bob' && info.full_prompt;
+    
+    // For Bob, only show the full prompt
+    if (hasBobPrompt) {
+        // Create HTML with only the prompt
+        let html = `
+            <div class="retrieved-item">
+                <div class="full-prompt">
+                    <pre>${info.full_prompt.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                </div>
+            </div>`;
+        
+        retrievedContent.innerHTML = html;
+    } else {
+        // For other characters, create HTML with category and examples
+        let html = `
+            <div class="retrieved-item">
+                <h4>Category: ${info.category || 'N/A'}</h4>
+                <p><strong>Speaker:</strong> ${info.speaker || 'N/A'}</p>
+                <div class="examples">
+                    <strong>Examples:</strong>
+                    <ul>
+                        ${info.examples ? info.examples.map(ex => `<li>${ex}</li>`).join('') : '<li>No examples</li>'}
+                    </ul>
+                </div>
+            </div>`;
+        
+        retrievedContent.innerHTML = html;
+    }
+    
+    retrievedInfo.style.display = 'block';
+    retrievedInfo.classList.add('visible');
+}
+
+// Function to reset line counter
 function resetLineCounter() {
     lineCounter = 1;
-    displayRetrievedInfo(null);
 }
 
 // Function to add message with delay
-function addMessageWithDelay(text, sender, delay, retrievedInfo = null) {
+function addMessageWithDelay(text, sender, delay, retrievedInfo) {
     return new Promise(resolve => {
         setTimeout(() => {
             addMessage(text, sender, retrievedInfo);
@@ -130,11 +380,26 @@ async function sendMessage() {
     const userInput = chatInput.value.trim();
     if (!userInput) return;
     
+    // Determine speaker based on interaction mode
+    const speaker = useJulie ? "Julie" : currentSpeaker;
+    
     // Add user message to chat
-    addMessage(userInput, currentSpeaker);
+    if (useJulie && !isAutoJulie) {
+        // If Julie is handling manually, display Julie's message to the town person
+        addMessage(userInput, "Julie");
+    } else {
+        // If direct interaction, display operator's message
+        addMessage(userInput, currentSpeaker);
+    }
+    
     chatInput.value = '';
     
+    // Disable input while waiting for response
+    chatInput.disabled = true;
+    sendBtn.disabled = true;
+    
     try {
+        console.log(`Sending message as ${speaker}: ${userInput}`);
         const response = await fetch(`${API_BASE_URL}/chat`, {
             method: 'POST',
             headers: {
@@ -144,7 +409,7 @@ async function sendMessage() {
                 townPerson: selectedPerson,
                 userInput: userInput,
                 mode: 'interactive',
-                speaker: currentSpeaker
+                speaker: speaker  // Pass the speaker (Julie or Operator)
             })
         });
         
@@ -153,15 +418,41 @@ async function sendMessage() {
         }
         
         const data = await response.json();
-        console.log('Received response:', data);
+        console.log('Received response data:', data);
         
-        if (data.response) {
-            // Add response with retrieved info
-            addMessage(data.response, currentSpeaker === 'Operator' ? selectedPerson : 'Operator', data.retrieved_info);
+        // Check if data is null or undefined before accessing properties
+        if (!data) {
+            throw new Error('Received null or undefined response from server');
+        }
+        
+        if (data.error) {
+            // Handle error response
+            console.error('Error from server:', data.error);
+            addMessage(`Error: ${data.error}`, 'System');
+        } else if (data.response) {
+            // Handle single response
+            // Get the response speaker (town person)
+            addMessage(data.response, selectedPerson, data.retrieved_info);
+            
+            // If in Auto Julie mode, we need to trigger Julie's next response
+            if (useJulie && isAutoJulie) {
+                setTimeout(() => generateJulieResponse(), 1500); // Slight delay before Julie responds
+            }
+            // Toggle speaker back to Operator for next message in direct mode
+            else if (currentSpeaker !== "Operator" && !useJulie) {
+                toggleSpeaker();
+            }
+        } else {
+            console.error('Unknown response format:', data);
+            addMessage('Received an unknown response format from the server.', 'System');
         }
     } catch (error) {
         console.error('Error:', error);
-        addMessage('Sorry, there was an error processing your message.', 'System');
+        addMessage(`Error: ${error.message}`, 'System');
+    } finally {
+        // Re-enable input
+        chatInput.disabled = false;
+        sendBtn.disabled = false;
     }
 }
 
@@ -179,12 +470,17 @@ async function generateAutoChat() {
         retrievedContent.innerHTML = '';
         retrievedInfo.classList.remove('visible');
         retrievedInfo.style.display = 'none';
+        messages = [];
+        resetLineCounter();
 
         // Disable controls during generation
         autoModeBtn.disabled = true;
         interactiveModeBtn.disabled = true;
         chatInput.disabled = true;
         sendBtn.disabled = true;
+
+        // Add loading message
+        addMessage("Generating conversation... This may take a moment.", "System");
 
         try {
             console.log('Generating complete conversation');
@@ -202,23 +498,30 @@ async function generateAutoChat() {
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-
+            
             const data = await response.json();
             console.log('Received response:', data);
-            console.log('Retrieved info:', data.retrieved_info);
+
+            // Check if data is null or undefined
+            if (!data) {
+                throw new Error('Received null or undefined response from server');
+            }
 
             if (data.error) {
                 throw new Error(data.error);
             }
 
-            if (!data || !data.transcript) {
-                throw new Error('No response received from server');
+            if (!data.transcript) {
+                throw new Error('No transcript received from server');
             }
+
+            // Clear the loading message
+            chatWindow.innerHTML = '';
+            resetLineCounter();
 
             // Add the response to the chat window
             const messages = data.transcript.split('\n').filter(msg => msg.trim());
             console.log('Messages:', messages);
-            console.log('Retrieved info length:', data.retrieved_info ? data.retrieved_info.length : 0);
             
             for (let i = 0; i < messages.length; i++) {
                 const message = messages[i];
@@ -239,6 +542,10 @@ async function generateAutoChat() {
 
         } catch (error) {
             console.error('Error:', error);
+            // Clear any existing messages
+            chatWindow.innerHTML = '';
+            resetLineCounter();
+            
             addMessage('Error generating conversation: ' + error.message, 'System');
             
             // Re-enable controls on error
@@ -257,42 +564,21 @@ async function generateAutoChat() {
 async function enableInteractiveMode() {
     isAutoMode = false;
     chatInputSection.style.display = 'flex';
-    speakerToggleBtn.style.display = 'block';
+    speakerToggleBtn.style.display = useJulie ? 'none' : 'block'; // Hide speaker toggle in Julie mode
     interactiveModeBtn.classList.add('active');
     autoModeBtn.classList.remove('active');
     chatWindow.innerHTML = '';
     messages = [];
     resetLineCounter();
     
-    // Show loading message
-    addMessage('Starting conversation...', 'System');
+    // Always set speaker to Operator in interactive mode
+    currentSpeaker = 'Operator';
     
-    try {
-        // Get initial operator message
-        const response = await fetch(`${API_BASE_URL}/chat`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                townPerson: selectedPerson,
-                userInput: '',
-                mode: 'interactive_start'  // Special mode for initial message
-            })
-        });
-        
-        const data = await response.json();
-        // Clear loading message
-        chatWindow.innerHTML = '';
-        resetLineCounter();
-        
-        if (data.response) {
-            addMessage(data.response, 'Operator');
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        addMessage('Sorry, there was an error starting the conversation.', 'System');
-    }
+    // Set initial placeholder text
+    chatInput.placeholder = `Type your message as ${useJulie ? 'Julie' : 'Operator'}...`;
+    
+    // Add initial instructions
+    addMessage("You are now in interactive mode. As the Fire Department Operator, your goal is to convince the town person to evacuate. Type your message to begin the conversation.", "System");
 }
 
 // Function to switch to auto mode
@@ -320,4 +606,4 @@ chatInput.addEventListener('keypress', (e) => {
 speakerToggleBtn.addEventListener('click', toggleSpeaker);
 
 // Start in interactive mode by default
-enableInteractiveMode();
+enableInteractiveMode(); 

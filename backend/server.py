@@ -38,7 +38,7 @@ BASE_DIR = os.getenv('A2I2_BASE_DIR', os.path.dirname(os.path.dirname(os.path.ab
 # Configure paths relative to base directory
 OUTPUT_FILE_PATH = os.path.join(BASE_DIR, "results/answer_80.jsonl")
 PERSONA_FILE_PATH = os.path.join("/Users/tzhang/projects/A2I2/data_for_train/persona.json")
-DIAL_FILE_PATH = os.path.join("/Users/tzhang/projects/A2I2/data_for_train/dialogue_1.json")
+DIAL_FILE_PATH = os.path.join("/Users/tzhang/projects/A2I2/data_for_train/bob_lines.jsonl")
 PYTHON_SCRIPT = os.path.join("/Users/tzhang/projects/A2I2/backend/ollama_0220.py")
 
 # Load persona and dialogue data
@@ -51,8 +51,18 @@ def load_json_file(file_path):
         print(f"Error loading {file_path}: {str(e)}")
         return {}
 
+# Function to load JSONL file
+bob_data = None
+with open(DIAL_FILE_PATH, 'r') as f:
+    for line in f:
+        dialogue_data_line = json.loads(line)
+        if dialogue_data_line ['character'] == 'bob':
+            bob_data = dialogue_data_line
+
+
+
 persona_data = load_json_file(PERSONA_FILE_PATH)
-dialogue_data = load_json_file(DIAL_FILE_PATH)
+dialogue_data = bob_data
 
 # Request body model
 class ChatRequest(BaseModel):
@@ -89,18 +99,371 @@ async def chat(request: Request):
     try:
         data = await request.json()
         town_person = data.get("townPerson")
-        # Convert to lowercase for case-insensitive lookup
-        town_person_lower = town_person.lower()
         user_input = data.get("userInput", "")
         mode = data.get("mode", "interactive")
+        speaker = data.get("speaker", "")
+        auto_julie = data.get("autoJulie", False)
+        town_person_lower = town_person.lower()
+        
+        # Simulating session tracking on the server side
+        session_id = f"{town_person_lower}_session"
 
-        print(f"Received request - town_person: {town_person}, mode: {mode}")
-
-        if not town_person or town_person_lower not in persona_data:
-            print(f"Invalid town person: {town_person}")
-            return {"error": "Invalid town person"}
-
-        if mode == "auto":
+        # If in interactive mode, the session ID is stable across requests
+        if mode == "interactive":
+            print(f"Interactive mode: session_id = {session_id}")
+            
+            if auto_julie:
+                # Get the conversation history
+                history = conversation_manager.get_history(session_id, max_turns=10)
+                # Count messages to determine conversation stage
+                message_count = 0
+                if history:
+                    # Count messages based on the number of entries in the history
+                    message_count = len(history.split('\n'))
+                
+                print(f"Auto Julie mode: message count = {message_count}")
+                
+                # Determine conversation stage based on message count
+                stage = "initial"
+                if message_count == 0:
+                    stage = "initial"
+                elif message_count <= 2:
+                    stage = "followup"
+                elif message_count <= 4:
+                    stage = "urgent"
+                else:
+                    stage = "final"
+                
+                print(f"Conversation stage: {stage}")
+                
+                # Stage-specific prompts for Julie
+                julie_prompts = {
+                    "initial": f"""System: You are Julie, a virtual assistant specializing in emergency evacuations.
+                    You are initiating contact with {town_person} who needs to evacuate due to a dangerous wildfire approaching within 5 miles.
+                    
+                    About {town_person}: {persona_data[town_person_lower]}
+                    
+                    Generate a brief, clear first message to {town_person} that:
+                    1. Introduces yourself as Julie, the emergency evacuation assistant
+                    2. Clearly states there is an urgent wildfire evacuation
+                    3. Is direct but not alarming
+                    4. Is only 1-3 sentences long
+                    
+                    Format your response as a direct message without any prefix or quotation marks.""",
+                    
+                    "followup": f"""System: You are Julie, continuing an emergency evacuation conversation with {town_person}.
+                    The wildfire is now 3 miles away and approaching quickly.
+                    
+                    About {town_person}: {persona_data[town_person_lower]}
+                    
+                    Previous conversation:
+                    {history}
+                    
+                    Generate a short, persuasive follow-up response that:
+                    1. Acknowledges any concerns expressed by {town_person}
+                    2. Provides specific, relevant information to address those concerns
+                    3. Increases the sense of urgency without causing panic
+                    4. Is only 2-3 sentences long
+                    
+                    Format your response as a direct message without any prefix or quotation marks.""",
+                    
+                    "urgent": f"""System: You are Julie, in an urgent evacuation conversation with {town_person}.
+                    The wildfire is now just 1 mile away and the situation is critical.
+                    
+                    About {town_person}: {persona_data[town_person_lower]}
+                    
+                    Previous conversation:
+                    {history}
+                    
+                    Generate an urgent, compelling response that:
+                    1. Emphasizes the immediate danger with specific details (fire distance, time left)
+                    2. Directly addresses {town_person}'s specific concerns or objections
+                    3. Offers practical solutions to their stated obstacles
+                    4. Uses stronger language that conveys urgency
+                    5. Is only 2-3 sentences long
+                    
+                    Format your response as a direct message without any prefix or quotation marks.""",
+                    
+                    "final": f"""System: You are Julie making a final appeal to {town_person} who is resisting evacuation.
+                    The wildfire is now at the edge of town, and this is your final attempt to convince them.
+                    
+                    About {town_person}: {persona_data[town_person_lower]}
+                    
+                    Previous conversation:
+                    {history}
+                    
+                    Generate a final, emotionally impactful appeal that:
+                    1. States this is the absolute last chance to evacuate safely
+                    2. Uses specific personal details about {town_person} that would motivate them
+                    3. Appeals to their emotions (family, safety, responsibility)
+                    4. Offers very specific help (I can call someone, I've arranged transportation)
+                    5. Is only 2-3 sentences long
+                    
+                    Format your response as a direct message without any prefix or quotation marks."""
+                }
+                
+                # Select appropriate prompt
+                julie_prompt = {
+                    "speaker": "julie",
+                    "prompt": julie_prompts[stage],
+                    "category": f"julie_{stage}"
+                }
+                
+                print(f"Using Julie prompt for stage: {stage}")
+                
+                # Generate Julie's message first
+                try:
+                    julie_response = simulate_interactive_single_turn(
+                        "julie",
+                        "",
+                        speaker="System",
+                        persona=persona_data.get("julie", "A helpful virtual assistant for evacuations"),
+                        turn=julie_prompt,
+                        session_id=session_id
+                    )[0]
+                    # Add Julie's message to conversation history
+                    conversation_manager.add_message(session_id, "Julie", julie_response)
+                except Exception as e:
+                    return {"error": f"Error generating Julie's response: {str(e)}"}
+                    
+                # Then generate town person's response
+                turn = {
+                    "speaker": town_person_lower,
+                    "prompt": f"""System: You are roleplaying as {town_person}, a resident who needs to evacuate due to a wildfire emergency.
+                    
+                    {town_person}'s background: {persona_data[town_person_lower]}
+                    
+                    Previous conversation:
+                    {conversation_manager.get_history(session_id, max_turns=10)}
+                    
+                    Give a realistic response from {town_person} to Julie the evacuation assistant.
+                    Your response should be in character and reflect {town_person}'s personality and concerns.
+                    Keep your response brief - just a few sentences of in-character dialogue.
+                    Don't include any system messages, only speak as {town_person}.
+                    
+                    Format your output as a direct message without any prefix or quotation marks.""",
+                    "category": f"town_person_{stage}"
+                }
+                
+                try:
+                    # Generate town person's response
+                    response, retrieved_info = simulate_interactive_single_turn(
+                        town_person_lower,
+                        user_input,
+                        speaker=speaker,
+                        persona=persona_data[town_person_lower],
+                        turn=turn,
+                        session_id=session_id
+                    )
+                    
+                    # Check if response is in history and add it if not
+                    history_after = conversation_manager.get_history(session_id, max_turns=10)
+                    if not response in history_after:
+                        # If response isn't in history already, add it explicitly
+                        conversation_manager.add_message(session_id, town_person, response)
+                        print(f"Explicitly added response to history: {town_person}: {response}")
+                    
+                    # Return town person's response
+                    if town_person_lower == "bob":
+                        # For Bob, include the full prompt in the retrieved info
+                        full_prompt = turn["prompt"]
+                        
+                        # Merge retrieved info with additional prompt information
+                        if isinstance(retrieved_info, dict):
+                            retrieved_info["full_prompt"] = full_prompt
+                            retrieved_info["stage"] = stage
+                        else:
+                            # If retrieved_info is not a dict, create a new one
+                            retrieved_info = {
+                                "speaker": "bob",
+                                "category": stage,
+                                "full_prompt": full_prompt,
+                                "examples": retrieved_info.get("examples", []) if isinstance(retrieved_info, dict) else []
+                            }
+                        
+                        print(f"Returning Bob response with full prompt for stage: {stage}")
+                    
+                    return {
+                        "julieResponse": julie_response,
+                        "response": response,
+                        "retrieved_info": retrieved_info,
+                        "category": turn["category"]
+                    }
+                except Exception as e:
+                    print(f"Error in interactive mode: {str(e)}")
+                    traceback.print_exc()
+                    return {"error": f"Error generating response: {str(e)}"}
+            else:
+                # Handle regular interactive mode (not auto Julie)
+                # First, add the user's message to the conversation history
+                if user_input:
+                   
+                    conversation_manager.add_message(session_id, speaker, user_input)
+                    print(f"Added user input to history: {speaker}: {user_input}")
+                
+                # Get the conversation history to determine stage
+                history = conversation_manager.get_history(session_id, max_turns=10)
+                message_count = 0
+                if history:
+                    message_count = len(history.split('\n'))
+                
+                print(f"Interactive mode: message count = {message_count}")
+                
+                # Special structure for Bob with branching logic
+                if town_person_lower == "bob":
+                    # Check if the operator is speaking personally
+                    is_operator_personal = False
+                    emphasizes_danger = False
+                    emphasizes_value_of_life = False
+                    ending_conversation = False
+                    # Analyze last message if it exists and is from the Operator
+                    if history and message_count > 0 and speaker == "Operator":
+                        last_message = user_input.lower()
+                        # Check if message emphasizes fire danger
+                        if any(keyword in last_message for keyword in ["danger", "fire", "emergency", "leave now", "life-threatening"]):
+                            emphasizes_danger = True
+                        # Check if message emphasizes that work is not worth the risk
+                        if any(keyword in last_message for keyword in ["not worth", "work isn't worth", "nothing is worth", "life"]):
+                            emphasizes_value_of_life = True
+                        if any(keyword in last_message for keyword in ["okay", "fine", "alright", "sure", "ok"]):
+                            ending_conversation = True
+                        # If both conditions are met, the operator is being personally persuasive
+                        is_operator_personal = emphasizes_danger or emphasizes_value_of_life
+                    
+                    # Determine conversation stage based on message count and operator interaction
+                    category = ""
+                    if message_count == 1:
+                        # Initial dismissal - Bob ignores evacuation warnings
+                        category = "greetings"
+                        # Find Bob's responses in the dialogue data
+                        context = bob_data[category]
+                        
+                        prompt_content = f"Generate an initial response to the operator's or julie's greeting. Use or adapt lines from this {category}:{context}. If the message came from Julie, show reluctance to even acknowledge her. If the message came from the Operator, be slightly more responsive but still resistant."
+                    
+                    elif message_count ==3 :
+                        # Work-focused resistance - Bob emphasizes his work is too important
+                        category = "work_resistance"
+                        # Find Bob's responses in the dialogue data
+                        context = bob_data[category]
+                        
+                        prompt_content = f"Generate a response focusing heavily on your work being too important to leave behind. Use or adapt lines from this {category}: {context}. If the previous message tried to emphasize danger, respond with skepticism. If the previous message tried to be empathetic, still refuse but with slightly less hostility."
+                    
+                    elif message_count == 5:
+                        # Decision point - Either minimal engagement or beginning to consider evacuation
+                        # category = "decision_point" if is_operator_personal else "minimal_engagement"
+                        # print(f"Category: {category}")
+                        
+                        # # Find Bob's responses in the dialogue data
+                        # context = bob_data[category]
+                        
+                        if emphasizes_danger:
+                            category = "decision_point"
+                            context = bob_data[category]
+                            prompt_content = f"Generate a response showing that you're beginning to consider the evacuation warning. The operator has personally emphasized the danger of the fire. Choose from: {context} to show that you're starting to take the threat seriously."
+                        else:
+                            category = "minimal_engagement"
+                            context = bob_data[category]
+                            prompt_content = f"Generate a response with minimal engagement. Showing frustration at continued persuasion attempts. Use lines from this {category}: {context} that show resistance. Keep your response very brief and show you're disengaging from the conversation."
+                    
+                    elif message_count == 7:
+                        # Final resolution - Either evacuation agreement or final refusal
+                        if emphasizes_value_of_life or emphasizes_danger:
+                            category = "progression"
+                            print(f"Category: {category}")
+                            # Find Bob's responses in the dialogue data
+                            context = bob_data[category]
+                            
+                            prompt_content = f"Generate a response agreeing to evacuate. Please be flexible based on the previous message. The operator has personally convinced you that the danger is real and no work is worth risking your life. Choose from this {category}: {context} like \"Okay, I'm not stupid. Let me just grab my bag and I'll head out.\" Show that you've been convinced to prioritize your safety."
+                        else:
+                            category = "final_refusal"
+                            print(f"Category: {category}")
+                            context = bob_data[category]
+                            
+                            prompt_content = f"Generate your final response refusing to evacuate. Please be flexible based on the previous message. Choose from this {category}: {context} to emphasize that you will not leave your work behind. This is your final decision and nothing will change your mind."
+                    else:
+                        if ending_conversation:
+                            print(f"Ending conversation")
+                            # category = "ending_conversation"
+                            # print(f"Category: {category}")
+                            # context = bob_data[category]
+                
+                            # prompt_content = f"Generate a response ending the conversation. Choose from this {category}: {context} to show that you're done talking."
+                
+                    # Create turn object with the selected category and prompt - fix formatting to avoid string format issues
+                    turn = {
+                        "speaker": "bob",
+                        "prompt": f"You are roleplaying as Bob, \nBob's background: {persona_data['bob']}\nPrevious conversation:\n{history}\n{prompt_content}\n please generate a response based on the last message and keep your response natural and brief. Only generate utterances, no system messages.",
+                        "category": category
+                    }
+                else:
+                    # Default behavior for other town people
+                    turn = {
+                        "speaker": town_person_lower,
+                        "prompt": f"""System: You are roleplaying as {town_person}, a resident who needs to evacuate due to a wildfire emergency.
+                        
+                        {town_person}'s background: {persona_data[town_person_lower]}
+                        
+                        Previous conversation:
+                        {history}
+                        
+                        Give a realistic response from {town_person} to the operator or Julie.
+                        Your response should be in character and reflect {town_person}'s personality and concerns.
+                        Keep your response brief - just a few sentences of in-character dialogue.
+                        Don't include any system messages, only speak as {town_person}.
+                        
+                        Format your output as a direct message without any prefix or quotation marks.""",
+                        "category": "town_person_response"
+                    }
+                
+                try:
+                    # Generate town person's response
+                    response, retrieved_info = simulate_interactive_single_turn(
+                        town_person_lower,
+                        user_input,
+                        speaker=speaker,
+                        persona=persona_data[town_person_lower],
+                        turn=turn,
+                        session_id=session_id
+                    )
+                    
+                    # Check if response is in history and add it if not
+                    history_after = conversation_manager.get_history(session_id, max_turns=10)
+                    if not response in history_after:
+                        # If response isn't in history already, add it explicitly
+                        conversation_manager.add_message(session_id, town_person, response)
+                        print(f"Explicitly added response to history: {town_person}: {response}")
+                    
+                    # Return town person's response
+                    if town_person_lower == "bob":
+                        # For Bob, include the full prompt in the retrieved info
+                        full_prompt = turn["prompt"]
+                        
+                        # Merge retrieved info with additional prompt information
+                        if isinstance(retrieved_info, dict):
+                            retrieved_info["full_prompt"] = full_prompt
+                            retrieved_info["stage"] = category
+                        else:
+                            # If retrieved_info is not a dict, create a new one
+                            retrieved_info = {
+                                "speaker": "bob",
+                                "category": category,
+                                "full_prompt": full_prompt,
+                                "examples": retrieved_info.get("examples", []) if isinstance(retrieved_info, dict) else []
+                            }
+                        
+                        print(f"Returning Bob response with full prompt for stage: {category}")
+                    
+                    return {
+                        "response": response,
+                        "retrieved_info": retrieved_info,
+                        "category": turn["category"]
+                    }
+                except Exception as e:
+                    print(f"Error in interactive mode: {str(e)}")
+                    traceback.print_exc()
+                    return {"error": f"Error generating response: {str(e)}"}
+            
+        elif mode == "auto":
             try:
                 print(f"Starting auto mode generation for {town_person}")
                 # Generate the entire conversation at once
@@ -122,154 +485,10 @@ async def chat(request: Request):
                 traceback.print_exc()
                 return {"error": f"Error generating conversation: {str(e)}"}
             
-        elif mode == "interactive":
-            # Handle interactive mode - In this mode, we only generate a response from the town person
-            # The Operator's messages always come from the user
-            
-            # Use a stable session ID that doesn't change between requests
-            session_id = f"{town_person_lower}_session"
-            print(f"Using session ID: {session_id}")
-            
-            # Get user input speaker from request
-            speaker = data.get("speaker", "Operator")
-            print(f"User input speaker: {speaker}")
-            
-            # If the speaker is not Operator, we don't generate a response
-            if speaker != "Operator":
-                return {"error": "In interactive mode, only Operator messages can be sent by the user"}
-            
-            # Save user input to conversation history if provided
-            if user_input:
-                conversation_manager.add_message(session_id, speaker, user_input)
-                print(f"Added user input to history: {user_input}")
-            
-            # Get the history to determine conversation state
-            history = conversation_manager.get_history(session_id, max_turns=10)  # Increase max_turns to get full history
-            print(f"Current history: {history}")
-            
-            # Determine which turn to use based on the conversation history
-            # Get more accurate message count by counting newlines plus 1 (if history exists)
-            message_count = history.count("\n") + 1 if history else 0
-            print(f"Message count: {message_count}")
-            
-            # Pick the appropriate turn based on message count
-            if message_count == 1:  # Just user's first message
-                turn_index = 0  # Initial resistance
-            elif message_count == 2:  # User + town person's first response
-                turn_index = 1  # Continued resistance
-            elif message_count == 3:  # Second user message
-                turn_index = 1  # Continued resistance
-            elif message_count == 4:  # User + town person's second response
-                turn_index = 2  # Starting agreement
-            elif message_count == 5:  # Third user message
-                turn_index = 2  # Starting agreement
-            else:  # Final rounds
-                turn_index = 3  # Final agreement
-            
-            # Get the appropriate turn
-            turn = [
-                {
-                    "speaker": town_person_lower,
-                    "prompt": """System: You are {name} responding to a Fire Department Agent during an emergency.
-                    Based on your background: {persona}
-                    
-                    Relevant examples:
-                    {context}
-                    
-                    Respond appropriately to the operator's input. For example, if the operator says 'hello', respond with 'hi'.
-                    Be flexible and creative in your response, considering the context and examples provided.
-                    
-                    Current conversation:
-                    {history}
-                    
-                    Format your output as a direct response without any prefix.""",
-                    "category": "response_to_operator_greetings"
-                },
-                {
-                    "speaker": town_person_lower,
-                    "prompt": """System: You are {name} still showing resistance to evacuation.
-                    Based on your background: {persona}
-                    
-                    Relevant examples:
-                    {context}
-                    
-                    Respond appropriately to the operator's input. For example, if the operator expresses concern, address it with a relevant response.
-                    Be flexible and creative in your response, considering the context and examples provided.
-                    
-                    Current conversation:
-                    {history}
-                    
-                    Format your output as a direct response without any prefix.""",
-                    "category": "response_to_operator_greetings"
-                },
-                {
-                    "speaker": town_person_lower,
-                    "prompt": """System: You are {name} starting to agree to evacuate.
-                    Based on your background: {persona}
-                    
-                    Relevant examples:
-                    {context}
-                    
-                    Respond appropriately to the operator's input. For example, if the operator suggests evacuation, show agreement.
-                    Be flexible and creative in your response, considering the examples provided.
-                    
-                    Current conversation:
-                    {history}
-                    
-                    Format your output as a direct response without any prefix.""",
-                    "category": "progression"
-                },
-                {
-                    "speaker": town_person_lower,
-                    "prompt": """System: You are {name} finally agreeing to evacuate.
-                    Based on your background: {persona}
-                    
-                    Relevant examples:
-                    {context}  // Ensure this context is specific to Bob
-                    
-                    Respond with clear agreement to evacuate. Acknowledge the operator's instructions and express readiness to leave.
-                    Ensure the conversation is closed with a final statement of agreement.
-                    
-                    Current conversation:
-                    {history}
-                    
-                    Format your output as a direct response without any prefix.""",
-                    "category": "closing"
-                }
-            ][turn_index]
-            
-            print(f"Using turn index {turn_index}, category: {turn['category']}")
-            
-            # Generate the town person's response
-            try:
-                response, retrieved_info = simulate_interactive_single_turn(
-                    town_person_lower,
-                    user_input,
-                    speaker=town_person_lower,  # The input speaker is always Operator
-                    persona=persona_data[town_person_lower],
-                    turn=turn,
-                    session_id=session_id
-                )
-                
-                print(f"Generated response: {response}")
-                conversation_manager.add_message(session_id, town_person_lower, response)
-                return {
-                    "response": response,
-                    "retrieved_info": retrieved_info,
-                    "category": turn["category"]
-                }
-            except Exception as e:
-                print(f"Error processing response: {str(e)}")
-                traceback.print_exc()
-                return {"error": f"Error generating response: {str(e)}"}
-    # except:
-    #     #import pdb; pdb.set_trace()
-    #     print("Error in chat endpoint")
     except Exception as e:
         print(f"Error in chat endpoint: {str(e)}")
         traceback.print_exc()
         return {"error": str(e)}
-    #     continue
 
 if __name__ == "__main__":
     import uvicorn

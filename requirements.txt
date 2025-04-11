@@ -21,5 +21,7 @@ python-multipart==0.0.6
 aiohttp==3.9.1
 websockets==12.0
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.1.0+cpu
+torch==2.1.0
+sentence_transformers==2.2.0
+fails
 
