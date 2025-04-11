@@ -112,27 +112,16 @@ function updateJulieMode() {
 // Function to generate Julie's response automatically
 async function generateJulieResponse() {
     // Don't generate if already generating or auto Julie is off
-    if (isGenerating || !isAutoJulie) {
-        return;
-    }
-
+    if (isGenerating || !isAutoJulie) return;
+    
     isGenerating = true;
     
-    // Clear previous hints
-    const statusElement = document.getElementById('julieStatus');
-    if (statusElement) {
-        statusElement.remove();
-    }
-    
-    // Show loading message with more context
-    const loadingMessage = document.createElement('div');
-    loadingMessage.id = 'julieStatus';
-    loadingMessage.classList.add('julie-status');
-    
-    // More informative loading message
-    loadingMessage.innerHTML = '<div class="spinner-grow spinner-grow-sm text-info" role="status"></div> Julie is composing a message to convince the town person to evacuate...';
-    
-    chatWindow.appendChild(loadingMessage);
+    // Add loading indicator
+    const statusElement = document.createElement('div');
+    statusElement.id = 'julieStatus';
+    statusElement.classList.add('julie-hint');
+    statusElement.innerHTML = '<div class="alert alert-info">Auto Julie is thinking...</div>';
+    chatWindow.appendChild(statusElement);
     chatWindow.scrollTop = chatWindow.scrollHeight;
 
     // Call API to generate Julie's response
@@ -167,17 +156,6 @@ async function generateJulieResponse() {
         const julieResponse = data.julieResponse;
         const townPersonResponse = data.response;
         
-        // Determine conversation stage from the response category
-        const category = data.category || '';
-        let stage = "initial";
-        if (category.includes("followup")) {
-            stage = "followup";
-        } else if (category.includes("urgent")) {
-            stage = "urgent";
-        } else if (category.includes("final")) {
-            stage = "final";
-        }
-        
         // Remove loading indicator
         const statusElement = document.getElementById('julieStatus');
         if (statusElement) {
@@ -194,37 +172,8 @@ async function generateJulieResponse() {
             addMessage(selectedPerson, townPersonResponse, data.retrieved_info);
         }
         
-        // Add contextual hint based on conversation stage
-        const hintElement = document.createElement('div');
-        hintElement.id = 'julieStatus';
-        hintElement.classList.add('julie-hint');
-        
-        if (stage === "final") {
-            // Final stage - let user know this is critical
-            hintElement.innerHTML = `<div class="alert alert-danger">
-                <strong>Final Stage:</strong> Auto Julie has made her final appeal. The town person is still resistant. 
-                <br>You should step in now to make the final convincing argument!
-            </div>`;
-        } else {
-            // Other stages - show appropriate hints
-            const stageMap = {
-                "initial": "Initial contact made",
-                "followup": "Follow-up persuasion",
-                "urgent": "Urgent appeal"
-            };
-            
-            hintElement.innerHTML = `<div class="alert alert-info">
-                <strong>${stageMap[stage]}:</strong> 
-                ${stage !== "initial" ? "Auto Julie is continuing the conversation." : "Auto Julie has initiated contact."}
-                <br>You can let Auto Julie continue or take over at any time.
-            </div>`;
-        }
-        
-        chatWindow.appendChild(hintElement);
-        chatWindow.scrollTop = chatWindow.scrollHeight;
-        
-        // If not in final stage, auto-continue after delay
-        if (stage !== "final" && isAutoJulie) {
+        // If in Auto Julie mode, continue after delay
+        if (isAutoJulie) {
             setTimeout(() => {
                 generateJulieResponse();
             }, 5000); // 5 second delay before next auto response
@@ -425,6 +374,25 @@ async function sendMessage() {
             else if (currentSpeaker !== "Operator" && !useJulie) {
                 toggleSpeaker();
             }
+            
+            // Check if this is the end of the conversation
+            if (data.category === "progression" || data.category === "final_refusal") {
+                // Disable input and show appropriate UI feedback
+                chatInput.disabled = true;
+                sendBtn.disabled = true;
+                chatInput.placeholder = "Conversation has ended";
+                
+                // Add a visual indicator that the conversation has ended
+                const endDiv = document.createElement('div');
+                endDiv.className = 'message conversation-end';
+                const isSuccess = data.category === "progression";
+                endDiv.dataset.result = isSuccess ? "success" : "failure";
+                endDiv.textContent = isSuccess ? 
+                    "✓ Person has agreed to evacuate" : 
+                    "✗ Person has refused to evacuate";
+                chatWindow.appendChild(endDiv);
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+            }
         } else {
             console.error('Unknown response format:', data);
             addMessage('Received an unknown response format from the server.', 'System');
@@ -433,9 +401,11 @@ async function sendMessage() {
         console.error('Error:', error);
         addMessage(`Error: ${error.message}`, 'System');
     } finally {
-        // Re-enable input
-        chatInput.disabled = false;
-        sendBtn.disabled = false;
+        // Only re-enable input if conversation hasn't ended
+        if (!data?.category || (data.category !== "progression" && data.category !== "final_refusal")) {
+            chatInput.disabled = false;
+            sendBtn.disabled = false;
+        }
     }
 }
 

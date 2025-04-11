@@ -325,7 +325,7 @@ async def chat(request: Request):
                         # Check if message emphasizes that work is not worth the risk
                         if any(keyword in last_message for keyword in ["not worth", "work isn't worth", "nothing is worth", "life"]):
                             emphasizes_value_of_life = True
-                        if any(keyword in last_message for keyword in ["okay", "fine", "alright", "sure", "ok"]):
+                        if any(keyword in last_message for keyword in ["fine", "alright", "sure", "ok"]):
                             ending_conversation = True
                         # If both conditions are met, the operator is being personally persuasive
                         is_operator_personal = emphasizes_danger or emphasizes_value_of_life
