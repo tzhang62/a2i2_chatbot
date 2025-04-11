@@ -293,23 +293,6 @@ function addMessage(text, sender, retrievedInfo) {
     content.innerHTML = `<strong>${sender}:</strong> ${text}`;
     messageDiv.appendChild(content);
     
-    // Check if this is a conversation-ending message
-    if (text.toLowerCase().includes("okay") || text.toLowerCase().includes("fine") || 
-        text.toLowerCase().includes("alright") || text.toLowerCase().includes("sure") || 
-        text.toLowerCase().includes("ok")) {
-        messageDiv.classList.add('conversation-end');
-        // Add a visual indicator for conversation end
-        const endIndicator = document.createElement('div');
-        endIndicator.className = 'conversation-end-indicator';
-        endIndicator.innerHTML = '<i class="fas fa-flag-checkered"></i> Conversation Ended';
-        messageDiv.appendChild(endIndicator);
-        
-        // Disable input after conversation ends
-        chatInput.disabled = true;
-        sendBtn.disabled = true;
-        chatInput.placeholder = 'Conversation has ended';
-    }
-    
     chatWindow.appendChild(messageDiv);
     chatWindow.scrollTop = chatWindow.scrollHeight;
     messages.push({ sender, text, lineNumber: lineCounter - 1 });
