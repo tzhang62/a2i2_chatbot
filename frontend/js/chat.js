@@ -330,6 +330,7 @@ async function sendMessage() {
     chatInput.disabled = true;
     sendBtn.disabled = true;
     
+    let data;
     try {
         console.log(`Sending message as ${speaker}: ${userInput}`);
         const response = await fetch(`${API_BASE_URL}/chat`, {
@@ -349,7 +350,7 @@ async function sendMessage() {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        const data = await response.json();
+        data = await response.json();
         console.log('Received response data:', data);
         
         // Check if data is null or undefined before accessing properties
@@ -376,22 +377,14 @@ async function sendMessage() {
             }
             
             // Check if this is the end of the conversation
-            if (data.category === "progression" || data.category === "final_refusal") {
+            if ((data.category === "progression" || data.category === "final_refusal") && data.retrieved_info?.stage === "final") {
                 // Disable input and show appropriate UI feedback
                 chatInput.disabled = true;
                 sendBtn.disabled = true;
                 chatInput.placeholder = "Conversation has ended";
                 
                 // Add a visual indicator that the conversation has ended
-                const endDiv = document.createElement('div');
-                endDiv.className = 'message conversation-end';
-                const isSuccess = data.category === "progression";
-                endDiv.dataset.result = isSuccess ? "success" : "failure";
-                endDiv.textContent = isSuccess ? 
-                    "✓ Person has agreed to evacuate" : 
-                    "✗ Person has refused to evacuate";
-                chatWindow.appendChild(endDiv);
-                chatWindow.scrollTop = chatWindow.scrollHeight;
+                addMessage("Conversation Ended", "System");
             }
         } else {
             console.error('Unknown response format:', data);
@@ -401,8 +394,8 @@ async function sendMessage() {
         console.error('Error:', error);
         addMessage(`Error: ${error.message}`, 'System');
     } finally {
-        // Only re-enable input if conversation hasn't ended
-        if (!data?.category || (data.category !== "progression" && data.category !== "final_refusal")) {
+        // Re-enable input unless the conversation has explicitly ended
+        if (!data?.retrieved_info?.stage || data.retrieved_info.stage !== "final") {
             chatInput.disabled = false;
             sendBtn.disabled = false;
         }
