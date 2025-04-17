@@ -2,7 +2,7 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from ollama_0220 import simulate_dual_role_conversation, simulate_interactive_single_turn, conversation_manager
+from ollama_0220 import simulate_interactive_single_turn, conversation_manager
 import subprocess
 import os
 import json
@@ -38,7 +38,7 @@ BASE_DIR = os.getenv('A2I2_BASE_DIR', os.path.dirname(os.path.dirname(os.path.ab
 # Configure paths relative to base directory
 OUTPUT_FILE_PATH = os.path.join(BASE_DIR, "results/answer_80.jsonl")
 PERSONA_FILE_PATH = os.path.join("/Users/tzhang/projects/A2I2/data_for_train/persona.json")
-DIAL_FILE_PATH = os.path.join("/Users/tzhang/projects/A2I2/data_for_train/bob_lines.jsonl")
+DIAL_FILE_PATH = os.path.join("/Users/tzhang/projects/A2I2/data_for_train/character_lines.jsonl")
 PYTHON_SCRIPT = os.path.join("/Users/tzhang/projects/A2I2/backend/ollama_0220.py")
 
 # Load persona and dialogue data
@@ -53,12 +53,23 @@ def load_json_file(file_path):
 
 # Function to load JSONL file
 bob_data = None
+niki_data = None
+lindsay_data = None
+ross_data = None
+michelle_data = None
 with open(DIAL_FILE_PATH, 'r') as f:
     for line in f:
         dialogue_data_line = json.loads(line)
         if dialogue_data_line ['character'] == 'bob':
             bob_data = dialogue_data_line
-
+        if dialogue_data_line ['character'] == 'niki':
+            niki_data = dialogue_data_line
+        if dialogue_data_line ['character'] == 'lindsay':
+            lindsay_data = dialogue_data_line
+        if dialogue_data_line ['character'] == 'ross':
+            ross_data = dialogue_data_line
+        if dialogue_data_line ['character'] == 'michelle':
+            michelle_data = dialogue_data_line
 
 
 persona_data = load_json_file(PERSONA_FILE_PATH)
@@ -114,7 +125,7 @@ async def chat(request: Request):
             
             if auto_julie:
                 # Get the conversation history
-                history = conversation_manager.get_history(session_id, max_turns=10)
+                history = conversation_manager.get_history(session_id, max_turns=11)
                 # Count messages to determine conversation stage
                 message_count = 0
                 if history:
@@ -124,17 +135,7 @@ async def chat(request: Request):
                 print(f"Auto Julie mode: message count = {message_count}")
                 
                 # Determine conversation stage based on message count
-                stage = "initial"
-                if message_count == 0:
-                    stage = "initial"
-                elif message_count <= 2:
-                    stage = "followup"
-                elif message_count <= 4:
-                    stage = "urgent"
-                else:
-                    stage = "final"
-                
-                print(f"Conversation stage: {stage}")
+               
                 
                 # Stage-specific prompts for Julie
                 julie_prompts = {
@@ -205,11 +206,11 @@ async def chat(request: Request):
                 # Select appropriate prompt
                 julie_prompt = {
                     "speaker": "julie",
-                    "prompt": julie_prompts[stage],
-                    "category": f"julie_{stage}"
+                    "prompt": julie_prompts,
+                    "category": f""
                 }
                 
-                print(f"Using Julie prompt for stage: {stage}")
+                
                 
                 # Generate Julie's message first
                 try:
@@ -226,25 +227,7 @@ async def chat(request: Request):
                 except Exception as e:
                     return {"error": f"Error generating Julie's response: {str(e)}"}
                     
-                # Then generate town person's response
-                turn = {
-                    "speaker": town_person_lower,
-                    "prompt": f"""System: You are roleplaying as {town_person}, a resident who needs to evacuate due to a wildfire emergency.
-                    
-                    {town_person}'s background: {persona_data[town_person_lower]}
-                    
-                    Previous conversation:
-                    {conversation_manager.get_history(session_id, max_turns=10)}
-                    
-                    Give a realistic response from {town_person} to Julie the evacuation assistant.
-                    Your response should be in character and reflect {town_person}'s personality and concerns.
-                    Keep your response brief - just a few sentences of in-character dialogue.
-                    Don't include any system messages, only speak as {town_person}.
-                    
-                    Format your output as a direct message without any prefix or quotation marks.""",
-                    "category": f"town_person_{stage}"
-                }
-                
+            
                 try:
                     # Generate town person's response
                     response, retrieved_info = simulate_interactive_single_turn(
@@ -257,32 +240,40 @@ async def chat(request: Request):
                     )
                     
                     # Check if response is in history and add it if not
-                    history_after = conversation_manager.get_history(session_id, max_turns=10)
+                    history_after = conversation_manager.get_history(session_id, max_turns=11)
                     if not response in history_after:
                         # If response isn't in history already, add it explicitly
                         conversation_manager.add_message(session_id, town_person, response)
                         print(f"Explicitly added response to history: {town_person}: {response}")
                     
                     # Return town person's response
-                    if town_person_lower == "bob":
-                        # For Bob, include the full prompt in the retrieved info
+                    if isinstance(retrieved_info, dict):
+                        # Include the full prompt in the retrieved info for all characters
                         full_prompt = turn["prompt"]
+                        retrieved_info["full_prompt"] = full_prompt
                         
-                        # Merge retrieved info with additional prompt information
-                        if isinstance(retrieved_info, dict):
-                            retrieved_info["full_prompt"] = full_prompt
-                            retrieved_info["stage"] = stage
-                        else:
-                            # If retrieved_info is not a dict, create a new one
-                            retrieved_info = {
-                                "speaker": "bob",
-                                "category": stage,
-                                "full_prompt": full_prompt,
-                                "examples": retrieved_info.get("examples", []) if isinstance(retrieved_info, dict) else []
-                            }
-                        
-                        print(f"Returning Bob response with full prompt for stage: {stage}")
+                        # Make sure speaker is set correctly
+                        if town_person_lower == "niki":
+                            retrieved_info["speaker"] = "niki"
+                            print(f"Set Niki's speaker in retrieved_info: {retrieved_info['speaker']}")
+                        elif town_person_lower == "lindsay":
+                            retrieved_info["speaker"] = "lindsay"
+                            print(f"Set Lindsay's speaker in retrieved_info: {retrieved_info['speaker']}")
+                        elif town_person_lower == "ross":
+                            retrieved_info["speaker"] = "ross"
+                            print(f"Set Ross's speaker in retrieved_info: {retrieved_info['speaker']}")
+                        elif town_person_lower == "michelle":
+                            retrieved_info["speaker"] = "michelle"
+                            print(f"Set Michelle's speaker in retrieved_info: {retrieved_info['speaker']}")
+                    else:
+                        # If retrieved_info is not a dict, create a new one
+                        retrieved_info = {
+                            "full_prompt": turn["prompt"],
+                            "speaker": town_person_lower
+                        }
+                        print(f"Created new retrieved_info with speaker: {retrieved_info['speaker']}")
                     
+                    print(f"Final retrieved info for {town_person_lower}: {retrieved_info}")
                     return {
                         "julieResponse": julie_response,
                         "response": response,
@@ -302,7 +293,7 @@ async def chat(request: Request):
                     print(f"Added user input to history: {speaker}: {user_input}")
                 
                 # Get the conversation history to determine stage
-                history = conversation_manager.get_history(session_id, max_turns=10)
+                history = conversation_manager.get_history(session_id, max_turns=11)
                 message_count = 0
                 if history:
                     message_count = len(history.split('\n'))
@@ -325,7 +316,7 @@ async def chat(request: Request):
                         # Check if message emphasizes that work is not worth the risk
                         if any(keyword in last_message for keyword in ["not worth", "work isn't worth", "nothing is worth", "life"]):
                             emphasizes_value_of_life = True
-                        if any(keyword in last_message for keyword in ["fine", "alright", "sure", "ok"]):
+                        if any(keyword in last_message for keyword in ["fine", "alright", "sure", "ok","sounds good","thank",'thanks',"bye","goodbye","see you"]):
                             ending_conversation = True
                         # If both conditions are met, the operator is being personally persuasive
                         is_operator_personal = emphasizes_danger or emphasizes_value_of_life
@@ -395,26 +386,254 @@ async def chat(request: Request):
                         "prompt": f"You are roleplaying as Bob, \nBob's background: {persona_data['bob']}\nPrevious conversation:\n{history}\n{prompt_content}\n please generate a response based on the last message and keep your response natural and brief. Only generate utterances, no system messages.",
                         "category": category
                     }
-                else:
-                    # Default behavior for other town people
+                elif town_person_lower == "niki":
+                    keep_asking_questions = False
+                    mentions_fire = False
+                    ending_conversation = False
+                    if history and message_count > 2 and speaker == "Operator":
+                        last_message = user_input.lower()
+                        # Check if message emphasizes fire danger
+                        if any(keyword in last_message for keyword in ["?"]):
+                            keep_asking_questions = True
+                        if any(keyword in last_message for keyword in ["fine", "alright", "sure", "ok","sounds good","thank",'thanks',"bye","goodbye","see you"]):
+                            ending_conversation = True
+                        if any(keyword in last_message for keyword in ["fire", "danger", "emergency", "threatening",'die','evacuate','safety','drone', 'drones']):
+                            mentions_fire = True
+                    category = ""
+                    if message_count == 1:
+                        category = "greetings"
+                        context = niki_data[category]
+                        prompt_content = f"Generate an initial response to the operator's or julie's greeting. Use or adapt lines from this {category}:{context}. If the message came from Julie, show reluctance to even acknowledge her. If the message came from the Operator, be slightly more responsive but shows uncertainty and unware of the danger."
+                    elif message_count == 3:
+                        if mentions_fire:
+                            category = "progression"
+                            context = niki_data[category]
+                            prompt_content = f"Generate a response acknowledging the danger and agreeing to evacuate. Please be flexible based on the previous message. Choose from this {category}: {context}"
+            
+                        else:
+                            category = "response_to_operator_greetings"
+                            context = niki_data[category]
+                            prompt_content = f"Generate a response to the operator's greeting or answer the operator's question. Use or adapt lines from this {category}:{context}. If the message came from Julie, show reluctance to even acknowledge her. If the message came from the Operator, be slightly more responsive but try to confirm the danger."
+                    elif message_count == 5:
+                        if mentions_fire:
+                            category = "progression"
+                            context = niki_data[category]
+                            prompt_content = f"Generate a final response acknowledging the danger and agreeing to evacuate. Please be flexible based on the previous message. Choose from this {category}: {context}"
+                        elif ending_conversation:
+                            category = "closing"
+                            context = niki_data[category]
+                            prompt_content = f"Generate a final response to the operator or julie that agrees to evacuate. Please be flexible based on the previous message. Choose from this {category}: {context}"
+                        else:
+                            category = "observations"
+                            context = niki_data[category]
+                        prompt_content = f"Generate a response to answer the operator's or julie's question. Use or adapt lines from this {category}:{context}. "
+                    elif message_count == 7:
+                        if mentions_fire:
+                            category = "progression"
+                            context = niki_data[category]
+                            prompt_content = f"Generate your response acknowledging the danger and agreeing to evacuate. Please be flexible based on the previous message. Choose from this {category}: {context}"
+                        elif keep_asking_questions:
+                            category = "observation_2"
+                            context = niki_data[category]
+                            prompt_content = f"Generate your response to answer the operator's or julie's question. Please be flexible based on the previous message. Choose from this {category}: {context} "
+                        else:
+                            category = "progression"
+                            context = niki_data[category]
+                            prompt_content = f"Generate your final response finally agreeing to evacuate. Choose from this {category}: {context} "
+
+                    else:
+                        if ending_conversation:
+                            category = "closing"
+                            context = niki_data[category]
+                            prompt_content = f"Generate your response ending the conversation. Choose from this {category}: {context} "
+                            breakpoint()
+
+                        else:
+                            category = "progression"
+                            context = niki_data[category]
+                            prompt_content = f"Generate your final response finally agreeing to evacuate. Choose from this {category}: {context} "
                     turn = {
-                        "speaker": town_person_lower,
-                        "prompt": f"""System: You are roleplaying as {town_person}, a resident who needs to evacuate due to a wildfire emergency.
-                        
-                        {town_person}'s background: {persona_data[town_person_lower]}
-                        
-                        Previous conversation:
-                        {history}
-                        
-                        Give a realistic response from {town_person} to the operator or Julie.
-                        Your response should be in character and reflect {town_person}'s personality and concerns.
-                        Keep your response brief - just a few sentences of in-character dialogue.
-                        Don't include any system messages, only speak as {town_person}.
-                        
-                        Format your output as a direct message without any prefix or quotation marks.""",
-                        "category": "town_person_response"
+                        "speaker": "niki",
+                        "prompt": f"You are roleplaying as Niki, \nNiki's background: {persona_data['niki']}\nPrevious conversation:\n{history}\n{prompt_content}\n please generate a response based on the last message and keep your response natural and brief. Only generate utterances, no system messages.",
+                        "category": category
                     }
-                
+                elif town_person_lower == "lindsay":
+                    mentions_children = False
+                    mentions_parents = False
+                    ending_conversation = False
+                    mentions_fire = False
+                    if history and message_count > 0 and speaker == "Operator":
+                        last_message = user_input.lower()
+                        # Check if message emphasizes fire danger
+                        if any(keyword and '?' in last_message for keyword in ["children", "kid", "kids"]):
+                            mentions_children = True
+                        if any(keyword and '?' in last_message for keyword in ["parents", "parent", "mom", "dad"]):
+                            mentions_parents = True
+                        if any(keyword in last_message for keyword in ["fine", "alright", "sure", "ok","sounds good","thank",'thanks',"bye","goodbye","see you"]):
+                            ending_conversation = True
+                        if any(keyword in last_message for keyword in ["fire", "danger", "emergency", "threatening",'die','evacuate','safety', 'drone', 'drones']):
+                            mentions_fire = True
+                    category = ""
+                    if message_count == 1:
+                        category = "greetings"
+                        context = lindsay_data[category]
+                        prompt_content = f"Generate an initial response to the operator's or julie's greeting. Use or adapt lines from this {category}:{context}. "
+                    elif message_count == 3:
+                        if mentions_fire:
+                            category = "progression"
+                            context = lindsay_data[category]
+                            prompt_content = f"Generate a response acknowledging the danger and agreeing to evacuate. Please be flexible based on the previous message. Choose from this {category}: {context}"
+                        else:
+                            category = "response_to_operator_greetings"
+                            context = lindsay_data[category]
+                            prompt_content = f"Generate a response to the operator's greeting or answer the operator's question. Use or adapt lines from this {category}:{context}. "
+                    elif message_count == 5:
+                        if mentions_children:
+                            category = "children"
+                            context = lindsay_data[category]
+                            prompt_content = f"Generate a response to answer the operator's or julie's question about the children. Use or adapt lines from this {category}:{context}. "
+                        elif mentions_parents:
+                            category = "parents"
+                            context = lindsay_data[category]
+                            prompt_content = f"Generate a response to answer the operator's or julie's question about the parents. Use or adapt lines from this {category}:{context}. "
+                        elif mentions_fire:
+                            category = "progression"
+                            context = lindsay_data[category]
+                            prompt_content = f"Generate a response agreeing to evacuate. Use or adapt lines from this {category}:{context}. "
+                        elif ending_conversation:
+                            category = "closing"
+                            context = lindsay_data[category]
+                            prompt_content = f"Generate a final response to operator or julie. Use or adapt lines from this {category}:{context}. "
+            
+                        else:
+                            category = "observations"
+                            context = lindsay_data[category]
+                            prompt_content = f"Generate a response to answer the operator's or julie's question about the fire. Use or adapt lines from this {category}:{context}. "
+                    elif message_count == 7:
+                        if mentions_children:
+                            category = "children"
+                            context = lindsay_data[category]
+                            prompt_content = f"Generate a response to answer the operator's or julie's question. Use or adapt lines from this {category}:{context}. "   
+                        elif mentions_parents:
+                            category = "parents"
+                            context = lindsay_data[category]
+                            prompt_content = f"Generate a response to answer the operator's or julie's question. Use or adapt lines from this {category}:{context}. "
+                        elif mentions_fire:
+                            category = "progression"
+                            context = lindsay_data[category]
+                            prompt_content = f"Generate a final response agreeing to evacuate. Use or adapt lines from this {category}:{context}. "
+                        elif ending_conversation:
+                            category = "closing"
+                            context = lindsay_data[category]
+                            prompt_content = f"Generate a final response to operator or julie. Use or adapt lines from this {category}:{context}. "
+                        else:
+                            category = "progression"
+                            context = lindsay_data[category]
+                            prompt_content = f"Generate a response agreeing to evacuate. Use or adapt lines from this {category}:{context}. "
+                    else:
+                        if ending_conversation:
+                            category = "closing"
+                            context = lindsay_data[category]
+                            prompt_content = f"Generate a final response to operator or julie. Use or adapt lines from this {category}:{context}. "
+                        else:
+                            category = "progression"
+                            context = lindsay_data[category]
+                            prompt_content = f"Generate your final response finally agreeing to evacuate. Use or adapt lines from this {category}:{context}. "
+                    turn = {
+                        "speaker": "lindsay",
+                        "prompt": f"You are roleplaying as Lindsay, \nLindsay's background: {persona_data['lindsay']}\nPrevious conversation:\n{history}\n{prompt_content}\n please generate a response based on the last message and keep your response natural and brief. Only generate utterances, no system messages.",
+                        "category": category
+                    }
+                elif town_person_lower == "ross":
+                    ending_conversation = False
+                    if history and message_count > 5 and speaker == "Operator":
+                        last_message = user_input.lower()
+                        if any(keyword in last_message for keyword in ["fine", "alright", "sure", "ok","sounds good","thank",'thanks',"bye","goodbye","see you"]):
+                            ending_conversation = True
+                    category = ""
+                    if message_count == 1:
+                        category = "greetings"
+                        context = ross_data[category]
+                        prompt_content = f"Generate an initial response to the operator's or julie's greeting. Use or adapt lines from this {category}:{context}. "
+                    elif message_count == 3:
+                        category = "response_to_operator_greetings"
+                        context = ross_data[category]
+                        prompt_content = f"Generate a response to the operator's greeting or answer the operator's question. Use or adapt lines from this {category}:{context}. "
+                    elif message_count == 5:
+                        category = "progression"
+                        context = ross_data[category]
+                        prompt_content = f"Generate a response agreeing to evacuate. Use or adapt lines from this {category}:{context}. "
+                    elif message_count == 7:
+                        if ending_conversation:
+                            category = "closing"
+                            context = ross_data[category]
+                            prompt_content = f"Generate a final response to operator or julie. Use or adapt lines from this {category}:{context}. "
+                        else:
+                            category = "progression"
+                            context = ross_data[category]
+                            prompt_content = f"Generate a response agreeing to evacuate. Use or adapt lines from this {category}:{context}. "
+                    else:
+                        if ending_conversation:
+                            category = "closing"
+                            context = ross_data[category]
+                            prompt_content = f"Generate a final response to operator or julie. Use or adapt lines from this {category}:{context}. "
+                        else:
+                            category = "progression"
+                            context = ross_data[category]
+                            prompt_content = f"Generate a final response finally agreeing to evacuate. Use or adapt lines from this {category}:{context}. "
+                    turn = {
+                        "speaker": "ross",
+                        "prompt": f"You are roleplaying as Ross, \nRoss's background: {persona_data['ross']}\nPrevious conversation:\n{history}\n{prompt_content}\n please generate a response based on the last message and keep your response natural and brief. Only generate utterances, no system messages.",
+                        "category": category
+                    }
+                elif town_person_lower == "michelle":
+                    engagement=False
+                    if history and message_count > 0 and speaker == "Operator":
+                        last_message = user_input.lower()
+                        if any(keyword in last_message for keyword in ["worry","worried","understand","best"]):
+                            engagement = True
+                    ending_conversation = False
+                    if any(keyword in last_message for keyword in ["fine", "alright", "sure", "ok","good","thank",'thanks',"bye","goodbye","see you"]):
+                        ending_conversation = True
+                    
+                    category = ""
+                    if message_count == 1:
+                        category = "greetings"
+                        context = michelle_data[category]
+                        prompt_content = f"Generate an initial response to the operator's or julie's greeting. Use or adapt lines from this {category}:{context}. "
+                    elif message_count == 3:
+                        category = "response_to_operator_greetings"
+                        context = michelle_data[category]
+                        prompt_content = f"Generate a response to the operator's greeting or answer the operator's question. Use or adapt lines from this {category}:{context}. "
+                    elif message_count == 5:
+                        if engagement:
+                            category = "progression"
+                            context = michelle_data[category]
+                            prompt_content = f"Generate a response agreeing to evacuate. Use or adapt lines from this {category}:{context}. "
+                        else:
+                            category = "refuse_assistance"
+                            context = michelle_data[category]
+                            prompt_content = f"Generate a response refusing to evacuate. Use or adapt lines from this {category}:{context}. "
+                    elif message_count == 7:
+                        if ending_conversation:
+                            category = "progression"
+                            context = michelle_data[category]
+                            prompt_content = f"Generate a final response agreeing to evacuate. Use or adapt lines from this {category}:{context}. "
+                        else:
+                            category = "refuse_assistance"
+                            context = michelle_data[category]
+                            prompt_content = f"Generate a final response refusing to evacuate. Use or adapt lines from this {category}:{context}. "
+                    else:
+                        category = "closing"
+                        context = michelle_data[category]
+                        prompt_content = f"Generate a final response to operator or julie. Use or adapt lines from this {category}:{context}. "
+                    
+                    turn = {
+                        "speaker": "michelle",
+                        "prompt": f"You are roleplaying as Michelle, \nMichelle's background: {persona_data['michelle']}\nPrevious conversation:\n{history}\n{prompt_content}\n please generate a response based on the last message and keep your response natural and brief. Only generate utterances, no system messages.",
+                        "category": category
+                    }
+                        
                 try:
                     # Generate town person's response
                     response, retrieved_info = simulate_interactive_single_turn(
@@ -427,37 +646,46 @@ async def chat(request: Request):
                     )
                     
                     # Check if response is in history and add it if not
-                    history_after = conversation_manager.get_history(session_id, max_turns=10)
+                    history_after = conversation_manager.get_history(session_id, max_turns=12)
                     if not response in history_after:
                         # If response isn't in history already, add it explicitly
                         conversation_manager.add_message(session_id, town_person, response)
                         print(f"Explicitly added response to history: {town_person}: {response}")
                     
                     # Return town person's response
-                    if town_person_lower == "bob":
-                        # For Bob, include the full prompt in the retrieved info
+                    if isinstance(retrieved_info, dict):
+                        # Include the full prompt in the retrieved info for all characters
                         full_prompt = turn["prompt"]
+                        retrieved_info["full_prompt"] = full_prompt
+                        print(f"Added full_prompt to retrieved_info for {town_person_lower}")
                         
-                        # Merge retrieved info with additional prompt information
-                        if isinstance(retrieved_info, dict):
-                            retrieved_info["full_prompt"] = full_prompt
-                            retrieved_info["stage"] = category
-                        else:
-                            # If retrieved_info is not a dict, create a new one
-                            retrieved_info = {
-                                "speaker": "bob",
-                                "category": category,
-                                "full_prompt": full_prompt,
-                                "examples": retrieved_info.get("examples", []) if isinstance(retrieved_info, dict) else []
-                            }
-                        
-                        print(f"Returning Bob response with full prompt for stage: {category}")
-                    
+                        # Make sure speaker is set correctly
+                        if town_person_lower == "niki":
+                            retrieved_info["speaker"] = "niki"
+                            print(f"Set Niki's speaker in retrieved_info: {retrieved_info['speaker']}")
+                        elif town_person_lower == "lindsay":
+                            retrieved_info["speaker"] = "lindsay"
+                            print(f"Set Lindsay's speaker in retrieved_info: {retrieved_info['speaker']}")
+                        elif town_person_lower == "ross":
+                            retrieved_info["speaker"] = "ross"
+                            print(f"Set Ross's speaker in retrieved_info: {retrieved_info['speaker']}")
+                        elif town_person_lower == "michelle":
+                            retrieved_info["speaker"] = "michelle"
+                            print(f"Set Michelle's speaker in retrieved_info: {retrieved_info['speaker']}")
+                    else:
+                        # If retrieved_info is not a dict, create a new one
+                        retrieved_info = {
+                            "full_prompt": turn["prompt"],
+                            "speaker": town_person_lower
+                        }
+                    #print(retrieved_info)
+                    #print(f"Retrieved info for {town_person_lower}: {retrieved_info}")
                     return {
                         "response": response,
                         "retrieved_info": retrieved_info,
                         "category": turn["category"]
                     }
+                    
                 except Exception as e:
                     print(f"Error in interactive mode: {str(e)}")
                     traceback.print_exc()
@@ -484,7 +712,6 @@ async def chat(request: Request):
                 print(f"Error in auto mode generation: {str(e)}")
                 traceback.print_exc()
                 return {"error": f"Error generating conversation: {str(e)}"}
-            
     except Exception as e:
         print(f"Error in chat endpoint: {str(e)}")
         traceback.print_exc()

@@ -254,25 +254,15 @@ function addMessage(text, sender, retrievedInfo) {
 
 // Function to show retrieved info
 function showRetrievedInfo(info) {
-    if (!info) {
-        console.log('No retrieved info provided');
-        return;
-    }
-    console.log('Retrieved info object:', JSON.stringify(info, null, 2));
-    
+    if (!info) return;
     retrievedContent.innerHTML = '';
     
-    // Check if this is a character response with full prompt
-    const speakerLower = info.speaker?.toLowerCase() || '';
-    console.log(`Speaker detected: ${speakerLower}`);
+    // Check if this is a Bob response with full prompt
+    const hasBobPrompt = info.speaker?.toLowerCase() === 'bob' && info.full_prompt;
     
-    const validSpeakers = ['bob', 'niki', 'lindsay', 'ross', 'michelle'];
-    const hasFullPrompt = validSpeakers.includes(speakerLower) && info.full_prompt;
-    console.log(`Has full prompt: ${hasFullPrompt}, Speaker in validSpeakers: ${validSpeakers.includes(speakerLower)}, full_prompt exists: ${Boolean(info.full_prompt)}`);
-    
-    // Always show the full prompt if available
-    if (info.full_prompt) {
-        console.log(`Showing full prompt for ${speakerLower}`);
+    // For Bob, only show the full prompt
+    if (hasBobPrompt) {
+        // Create HTML with only the prompt
         let html = `
             <div class="retrieved-item">
                 <div class="full-prompt">
@@ -282,18 +272,19 @@ function showRetrievedInfo(info) {
         
         retrievedContent.innerHTML = html;
     } else {
-        console.log(`No full prompt available, showing examples instead`);
-        // For other town people or if no full prompt, show other retrieved info
-        let html = '<div class="retrieved-item">'; // Initialize html variable
-        
-        if (info.context && typeof info.context === 'string') {
-            html += `<div class="retrieved-context">
-                <h4>Context:</h4>
-                <pre>${info.context.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+        // For other characters, create HTML with category and examples
+        let html = `
+            <div class="retrieved-item">
+                <h4>Category: ${info.category || 'N/A'}</h4>
+                <p><strong>Speaker:</strong> ${info.speaker || 'N/A'}</p>
+                <div class="examples">
+                    <strong>Examples:</strong>
+                    <ul>
+                        ${info.examples ? info.examples.map(ex => `<li>${ex}</li>`).join('') : '<li>No examples</li>'}
+                    </ul>
+                </div>
             </div>`;
-        }
         
-        html += '</div>'; // Close the retrieved-item div
         retrievedContent.innerHTML = html;
     }
     
@@ -398,10 +389,6 @@ async function sendMessage() {
         } else if (data.response) {
             // Handle single response (for non-Julie mode)
             addMessage(data.response, selectedPerson, data.retrieved_info);
-            
-            // Log retrieved info for debugging
-            console.log(`Response from ${selectedPerson}:`, data.response);
-            console.log(`Retrieved info for ${selectedPerson}:`, data.retrieved_info);
             
             // Toggle speaker back to Operator for next message in direct mode
             if (currentSpeaker !== "Operator" && !useJulie) {
