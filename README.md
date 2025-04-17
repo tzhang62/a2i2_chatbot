@@ -113,7 +113,7 @@ A2I2/
 ## next time using server
 ```bash
 cd A2I2
-source venv/bin/activate
+source venv/bin/activate (for activate environment)
 git pull
 cd backend
 uvicorn server:app --host 0.0.0.0 --port 8001
