@@ -615,6 +615,37 @@ def simulate_interactive_single_turn(town_person, user_input, speaker, persona, 
 
     return response, retrieved_info
 
+def decision_making(history):
+    prompt = f"Based on the previous conversation {history}, determine if you were the operator, what action will you take? Such as sending a transport vehicle, sending a drone, or none. Keep the answer less than 5 words."
+    response = clean_response(send_to_ollama(prompt))
+    return response
+
+def emphasize_danger_check(history):
+    prompt = f"Based on the previous utterance {history}, determine if this utterance is emphasizing danger. If so, respond with 'yes', if not, respond with 'no', only respond with 'yes' or 'no'."
+    response = clean_response(send_to_ollama(prompt))
+    return response
+
+def emphasize_value_of_life_check(history):
+    prompt = f"Based on the previous utterance {history}, determine if this utterance is emphasizing the value of life. If so, respond with 'yes', if not, respond with 'no', only respond with 'yes' or 'no'."
+    response = clean_response(send_to_ollama(prompt))
+    return response
+
+def mentions_fire_check(history):
+    prompt = f"Based on the previous utterance {history}, determine if this utterance mentions fire. If so, respond with 'yes', if not, respond with 'no', only respond with 'yes' or 'no'."
+    response = clean_response(send_to_ollama(prompt))
+    return response
+
+def keep_asking_questions_check(history):
+    prompt = f"Based on the previous conversation {history}, determine if this utterance is asking about the fire conditions. If so, respond with 'yes', if not, respond with 'no', only respond with 'yes' or 'no'."
+    response = clean_response(send_to_ollama(prompt))
+    return response
+
+def ending_conversation_check(history):
+    prompt = f"Based on the previous utterance {history}, determine if the current message is the end of the conversation, for example, if the operator says thanks or goodbye or something similar, it means the conversation is ending. If the conversation is ending, respond with 'yes', if not, respond with 'no', only respond with 'yes' or 'no'."
+    response = clean_response(send_to_ollama(prompt))
+    return response
+
+
 # Example Usage
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="A generator that uses language models to answer questions.")

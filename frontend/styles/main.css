@@ -392,3 +392,99 @@ body {
 .message.conversation-end[data-result="failure"] {
     border-left-color: var(--danger-color);
 }
+
+.decision-status {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-bottom: 1px solid #ddd;
+    font-weight: bold;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.decision-status h3 {
+    color: var(--primary-color);
+    margin: 0 0 10px 0;
+    font-size: 1.1rem;
+}
+
+.decision-hint {
+    margin: 8px 0 0 0;
+    font-size: 0.8rem;
+    color: #6c757d;
+    font-style: italic;
+    font-weight: normal;
+}
+
+/* Decision status indicator styles */
+#decision-indicator {
+    display: inline-block;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-weight: bold;
+    text-align: center;
+    margin-top: 10px;
+    transition: background-color 0.3s ease;
+    width: 100%;
+}
+
+#decision-indicator.positive {
+    background-color: var(--success-color);
+    color: white;
+}
+
+#decision-indicator.negative {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+#decision-indicator.neutral {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    border: 1px solid #dee2e6;
+}
+
+#decision-indicator.trending-positive {
+    background-color: #a8e6cf; /* Light green */
+    color: #2d3e50;
+    border: 1px solid #2ecc71;
+}
+
+#decision-indicator.trending-negative {
+    background-color: #ffaaa5; /* Light red */
+    color: #2d3e50;
+    border: 1px solid #e74c3c;
+}
+
+#decision-indicator.undecided {
+    background-color: #ffd3b6; /* Light orange */
+    color: #2d3e50;
+    border: 1px solid #f39c12;
+}
+
+#decision-indicator.initial {
+    background-color: #e0f7fa; /* Light blue */
+    color: #01579b;
+    border: 1px solid #0288d1;
+}
+
+#decision-indicator.concerned {
+    background-color: #fff9c4; /* Light yellow */
+    color: #f57f17;
+    border: 1px solid #fbc02d;
+}
+
+/* Decision message in chat */
+.message.system.decision-message {
+    background-color: #f1f8e9;
+    border-left: 4px solid #558b2f;
+    font-style: italic;
+    margin: 10px 0;
+    padding: 10px;
+    position: relative;
+}
+
+.message.system.decision-message strong {
+    color: #0d47a1;
+}

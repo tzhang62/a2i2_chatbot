@@ -2,7 +2,7 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from ollama_0220 import simulate_interactive_single_turn, conversation_manager, decision_making, emphasize_danger_check, emphasize_value_of_life_check, ending_conversation_check, mentions_fire_check, keep_asking_questions_check
+from ollama_0220 import simulate_interactive_single_turn, conversation_manager
 import subprocess
 import os
 import json
@@ -118,7 +118,6 @@ async def chat(request: Request):
         
         # Simulating session tracking on the server side
         session_id = f"{town_person_lower}_session"
-        decision_response = None  # Initialize decision_response for all town people
 
         # If in interactive mode, the session ID is stable across requests
         if mode == "interactive":
@@ -135,10 +134,8 @@ async def chat(request: Request):
                 
                 print(f"Auto Julie mode: message count = {message_count}")
                 
-                # Get decision response if we have enough messages
-                if history and message_count >= 3:
-                    decision_response = decision_making(history)
-                    print(f"Decision response: {decision_response}")
+                # Determine conversation stage based on message count
+               
                 
                 # Stage-specific prompts for Julie
                 julie_prompts = {
@@ -281,8 +278,7 @@ async def chat(request: Request):
                         "julieResponse": julie_response,
                         "response": response,
                         "retrieved_info": retrieved_info,
-                        "category": turn["category"],
-                        "decision_response": decision_response
+                        "category": turn["category"]
                     }
                 except Exception as e:
                     print(f"Error in interactive mode: {str(e)}")
@@ -304,11 +300,6 @@ async def chat(request: Request):
                 
                 print(f"Interactive mode: message count = {message_count}")
                 
-                # Get decision response if we have enough messages
-                if history and message_count >= 3:
-                    decision_response = decision_making(history)
-                    print(f"Decision response: {decision_response}")
-                
                 # Special structure for Bob with branching logic
                 if town_person_lower == "bob":
                     # Check if the operator is speaking personally
@@ -316,24 +307,15 @@ async def chat(request: Request):
                     emphasizes_danger = False
                     emphasizes_value_of_life = False
                     ending_conversation = False
-                   
-                    if history and message_count >= 3:
-                        decision_response = decision_making(history)
-                        print(f"Decision response: {decision_response}")
-                        
+                    # Analyze last message if it exists and is from the Operator
+                    if history and message_count > 0 and speaker == "Operator":
                         last_message = user_input.lower()
                         # Check if message emphasizes fire danger
-                        emphasizes_danger_response = emphasize_danger_check(last_message)
-                        print(f"emphasize_danger_response: {emphasizes_danger_response}")
-                        emphasizes_value_of_life_response = emphasize_value_of_life_check(last_message)
-                        print(f"emphasize_value_of_life_response: {emphasizes_value_of_life_response}")
-                        # if emphasizes_danger == "yes":
-                        #     emphasizes_danger = True
-                        if "yes" in emphasizes_danger_response.lower():
+                        if any(keyword in last_message for keyword in ["danger", "fire", "emergency", "threatening",'die']):
                             emphasizes_danger = True
-                        if "yes" in emphasizes_value_of_life_response.lower():  
+                        # Check if message emphasizes that work is not worth the risk
+                        if any(keyword in last_message for keyword in ["not worth", "work isn't worth", "nothing is worth", "life"]):
                             emphasizes_value_of_life = True
-                        # 
                         if any(keyword in last_message for keyword in ["fine", "alright", "sure", "ok","sounds good","thank",'thanks',"bye","goodbye","see you"]):
                             ending_conversation = True
                         # If both conditions are met, the operator is being personally persuasive
@@ -358,7 +340,6 @@ async def chat(request: Request):
                         prompt_content = f"Generate a response focusing heavily on your work being too important to leave behind. Use or adapt lines from this {category}: {context}. If the previous message tried to emphasize danger, respond with skepticism. If the previous message tried to be empathetic, still refuse but with slightly less hostility."
                     
                     elif message_count == 5:
-                        print(f"emphasizes_danger_response: {emphasizes_danger_response}")
                         # Decision point - Either minimal engagement or beginning to consider evacuation
                         # category = "decision_point" if is_operator_personal else "minimal_engagement"
                         # print(f"Category: {category}")
@@ -377,8 +358,6 @@ async def chat(request: Request):
                     
                     elif message_count == 7:
                         # Final resolution - Either evacuation agreement or final refusal
-                        print(f"emphasizes_value_of_life_response: {emphasizes_value_of_life_response}")
-                        print(f"emphasizes_danger_response: {emphasizes_danger_response}")
                         if emphasizes_value_of_life or emphasizes_danger:
                             category = "progression"
                             print(f"Category: {category}")
@@ -394,14 +373,7 @@ async def chat(request: Request):
                             prompt_content = f"Generate your final response refusing to evacuate. Please be flexible based on the previous message. Choose from this {category}: {context} to emphasize that you will not leave your work behind. This is your final decision and nothing will change your mind."
                     else:
                         if ending_conversation:
-                            category = "closing"
-                            context = bob_data[category]
-                            prompt_content = f"Generate a response ending the conversation. Choose from this {category}: {context} to show that you're done talking."
                             print(f"Ending conversation")
-                        else:
-                            category = "closing"
-                            context = bob_data[category]
-                            prompt_content = f"Generate a response ending the conversation. Please be flexible based on the previous message. Choose from this {category}: {context} "
                             # category = "ending_conversation"
                             # print(f"Category: {category}")
                             # context = bob_data[category]
@@ -421,16 +393,11 @@ async def chat(request: Request):
                     if history and message_count > 2 and speaker == "Operator":
                         last_message = user_input.lower()
                         # Check if message emphasizes fire danger
-                        keep_asking_questions_response = keep_asking_questions_check(last_message)
-                        if "yes" in keep_asking_questions_response.lower():
+                        if any(keyword in last_message for keyword in ["?"]):
                             keep_asking_questions = True
                         if any(keyword in last_message for keyword in ["fine", "alright", "sure", "ok","sounds good","thank",'thanks',"bye","goodbye","see you"]):
                             ending_conversation = True
-                        # ending_conversation_response = ending_conversation_check(last_message)
-                        # if "yes" in ending_conversation_response.lower():
-                        #     ending_conversation = True
-                        mentions_fire_response = mentions_fire_check(last_message)
-                        if "yes" in mentions_fire_response.lower():
+                        if any(keyword in last_message for keyword in ["fire", "danger", "emergency", "threatening",'die','evacuate','safety','drone', 'drones']):
                             mentions_fire = True
                     category = ""
                     if message_count == 1:
@@ -448,7 +415,6 @@ async def chat(request: Request):
                             context = niki_data[category]
                             prompt_content = f"Generate a response to the operator's greeting or answer the operator's question. Use or adapt lines from this {category}:{context}. If the message came from Julie, show reluctance to even acknowledge her. If the message came from the Operator, be slightly more responsive but try to confirm the danger."
                     elif message_count == 5:
-                        print(f"mentions_fire_response: {mentions_fire_response}")
                         if mentions_fire:
                             category = "progression"
                             context = niki_data[category]
@@ -457,28 +423,19 @@ async def chat(request: Request):
                             category = "closing"
                             context = niki_data[category]
                             prompt_content = f"Generate a final response to the operator or julie that agrees to evacuate. Please be flexible based on the previous message. Choose from this {category}: {context}"
-                        elif keep_asking_questions:
-                            category = "observation"
-                            context = niki_data[category]
-                            prompt_content = f"Generate a response to answer the operator's or julie's question. Use or adapt lines from this {category}:{context}. "
                         else:
-                            category = "progression"
+                            category = "observations"
                             context = niki_data[category]
-                        prompt_content = f"Generate a response agreeing to evacuate. Use or adapt lines from this {category}:{context}. "
+                        prompt_content = f"Generate a response to answer the operator's or julie's question. Use or adapt lines from this {category}:{context}. "
                     elif message_count == 7:
                         if mentions_fire:
                             category = "progression"
                             context = niki_data[category]
                             prompt_content = f"Generate your response acknowledging the danger and agreeing to evacuate. Please be flexible based on the previous message. Choose from this {category}: {context}"
                         elif keep_asking_questions:
-                            print(f"keep_asking_questions_response: {keep_asking_questions_response}")
                             category = "observation_2"
                             context = niki_data[category]
                             prompt_content = f"Generate your response to answer the operator's or julie's question. Please be flexible based on the previous message. Choose from this {category}: {context} "
-                        elif ending_conversation:
-                            category = "closing"
-                            context = niki_data[category]
-                            prompt_content = f"Generate your response ending the conversation. Please be flexible based on the previous message. Choose from this {category}: {context} "
                         else:
                             category = "progression"
                             context = niki_data[category]
@@ -489,6 +446,7 @@ async def chat(request: Request):
                             category = "closing"
                             context = niki_data[category]
                             prompt_content = f"Generate your response ending the conversation. Choose from this {category}: {context} "
+                            breakpoint()
 
                         else:
                             category = "progression"
@@ -530,7 +488,6 @@ async def chat(request: Request):
                             context = lindsay_data[category]
                             prompt_content = f"Generate a response to the operator's greeting or answer the operator's question. Use or adapt lines from this {category}:{context}. "
                     elif message_count == 5:
-                        print(f"ending_conversation_response: {ending_conversation_response}")
                         if mentions_children:
                             category = "children"
                             context = lindsay_data[category]
@@ -723,12 +680,10 @@ async def chat(request: Request):
                         }
                     #print(retrieved_info)
                     #print(f"Retrieved info for {town_person_lower}: {retrieved_info}")
-                    print(f"Decision response: {decision_response}")    
                     return {
                         "response": response,
                         "retrieved_info": retrieved_info,
-                        "category": turn["category"],
-                        "decision_response": decision_response
+                        "category": turn["category"]
                     }
                     
                 except Exception as e:

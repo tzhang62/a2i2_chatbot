@@ -306,6 +306,14 @@ function resetLineCounter() {
     lineCounter = 1;
 }
 
+// Function to reset decision status
+function resetDecisionStatus() {
+    const decisionIndicator = document.getElementById('decision-indicator');
+    if (decisionIndicator) {
+        decisionIndicator.textContent = 'Decision Status: Waiting for conversation';
+    }
+}
+
 // Function to add message with delay
 function addMessageWithDelay(text, sender, delay, retrievedInfo) {
     return new Promise(resolve => {
@@ -365,6 +373,15 @@ async function sendMessage() {
         // Check if data is null or undefined before accessing properties
         if (!data) {
             throw new Error('Received null or undefined response from server');
+        }
+        
+        // Update decision status if available
+        if (data.decision_response) {
+            console.log("Decision response received:", data.decision_response);
+            updateDecisionStatus(data.decision_response);
+        } else {
+            console.log("No decision response received");
+            updateDecisionStatus(data.decision_response);
         }
         
         if (data.error) {
@@ -548,27 +565,24 @@ async function enableInteractiveMode() {
     chatWindow.innerHTML = '';
     messages = [];
     resetLineCounter();
+    resetDecisionStatus();
     
-    // Always set speaker to Operator in interactive mode
-    currentSpeaker = 'Operator';
-    
-    // Set initial placeholder text
-    chatInput.placeholder = `Type your message as ${useJulie ? 'Julie' : 'Operator'}...`;
-    
-    // Add initial instructions
-    addMessage("You are now in interactive mode. As the Fire Department Operator, your goal is to convince the town person to evacuate. Type your message to begin the conversation.", "System");
+    // Add initial system message
+    addMessage(`You're now in interactive mode. You can chat with ${selectedPerson} directly.`, 'System');
 }
 
 // Function to switch to auto mode
 function enableAutoMode() {
     isAutoMode = true;
     chatInputSection.style.display = 'none';
-    speakerToggleBtn.style.display = 'none';
-    autoModeBtn.classList.add('active');
     interactiveModeBtn.classList.remove('active');
+    autoModeBtn.classList.add('active');
     chatWindow.innerHTML = '';
     messages = [];
     resetLineCounter();
+    resetDecisionStatus();
+    
+    // Generate auto chat
     generateAutoChat();
 }
 
@@ -584,4 +598,64 @@ chatInput.addEventListener('keypress', (e) => {
 speakerToggleBtn.addEventListener('click', toggleSpeaker);
 
 // Start in interactive mode by default
-enableInteractiveMode(); 
+enableInteractiveMode();
+
+// Function to update the decision status display
+function updateDecisionStatus(decision) {
+    const decisionIndicator = document.getElementById('decision-indicator');
+    
+    if (!decisionIndicator) {
+        console.error("Could not find decision-indicator element");
+        return;
+    }
+    
+    console.log("Updating decision status:", decision);
+    
+    // Remove any existing classes
+    decisionIndicator.classList.remove('positive', 'negative', 'neutral', 'trending-positive', 'trending-negative', 'undecided');
+    
+    // Determine sentiment of decision
+    if (typeof decision === 'string') {
+        // Positive outcomes - Likely to evacuate
+        if (decision.toLowerCase().includes('evacuate') || 
+            decision.toLowerCase().includes('agree') || 
+            decision.toLowerCase().includes('positive') ||
+            decision.toLowerCase().includes('likely')) {
+            decisionIndicator.classList.add('positive');
+        } 
+        // Trending positive
+        else if (decision.toLowerCase().includes('trending toward evacuation') || 
+                 decision.toLowerCase().includes('initially positive')) {
+            decisionIndicator.classList.add('trending-positive');
+        }
+        // Negative outcomes - Unlikely to evacuate
+        else if (decision.toLowerCase().includes('refuse') || 
+                 decision.toLowerCase().includes('reject') || 
+                 decision.toLowerCase().includes('negative') ||
+                 decision.toLowerCase().includes('resist') ||
+                 decision.toLowerCase().includes('unlikely')) {
+            decisionIndicator.classList.add('negative');
+        }
+        // Trending negative
+        else if (decision.toLowerCase().includes('trending toward refusing') || 
+                 decision.toLowerCase().includes('initially resistant')) {
+            decisionIndicator.classList.add('trending-negative');
+        }
+        // Undecided but engaging
+        else if (decision.toLowerCase().includes('showing resistance but still engaging') ||
+                 decision.toLowerCase().includes('undecided')) {
+            decisionIndicator.classList.add('undecided');
+        }
+        // Default neutral
+        else {
+            decisionIndicator.classList.add('neutral');
+        }
+        
+        // Update text
+        decisionIndicator.textContent = `Decision Status: ${decision}`;
+    } else {
+        // Handle case where decision is not a string
+        decisionIndicator.classList.add('neutral');
+        decisionIndicator.textContent = 'Decision Status: Unknown';
+    }
+} 
