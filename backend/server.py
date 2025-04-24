@@ -316,6 +316,7 @@ async def chat(request: Request):
                     emphasizes_danger = False
                     emphasizes_value_of_life = False
                     ending_conversation = False
+                    emphasizes_danger_final = False
                    
                     if history and message_count >= 3:
                         decision_response = decision_making(history)
@@ -333,6 +334,8 @@ async def chat(request: Request):
                             emphasizes_danger = True
                         if "yes" in emphasizes_value_of_life_response.lower():  
                             emphasizes_value_of_life = True
+                        if emphasizes_danger:
+                            emphasizes_danger_final = True
                         # 
                         if any(keyword in last_message for keyword in ["fine", "alright", "sure", "ok","sounds good","thank",'thanks',"bye","goodbye","see you"]):
                             ending_conversation = True
@@ -370,7 +373,9 @@ async def chat(request: Request):
                             category = "decision_point"
                             context = bob_data[category]
                             prompt_content = f"Generate a response showing that you're beginning to consider the evacuation warning. The operator has personally emphasized the danger of the fire. Choose from: {context} to show that you're starting to take the threat seriously."
+                            emphasizes_danger_final = True
                         else:
+                            
                             category = "minimal_engagement"
                             context = bob_data[category]
                             prompt_content = f"Generate a response with minimal engagement. Showing frustration at continued persuasion attempts. Use lines from this {category}: {context} that show resistance. Keep your response very brief and show you're disengaging from the conversation."
@@ -379,7 +384,7 @@ async def chat(request: Request):
                         # Final resolution - Either evacuation agreement or final refusal
                         print(f"emphasizes_value_of_life_response: {emphasizes_value_of_life_response}")
                         print(f"emphasizes_danger_response: {emphasizes_danger_response}")
-                        if emphasizes_value_of_life or emphasizes_danger:
+                        if emphasizes_value_of_life or emphasizes_danger_final:
                             category = "progression"
                             print(f"Category: {category}")
                             # Find Bob's responses in the dialogue data
