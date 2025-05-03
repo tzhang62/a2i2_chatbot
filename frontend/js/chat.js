@@ -24,6 +24,7 @@ let useJulie = false; // Flag to determine if Julie should interact
 let messages = [];
 let lineCounter = 1;
 let currentSpeaker = 'Operator'; // Default speaker
+let isGenerating = false; // Flag to prevent multiple simultaneous Julie responses
 
 // Add interaction mode toggle
 const interactionModeContainer = document.createElement('div');
@@ -103,9 +104,13 @@ manualJulieBtn.addEventListener('click', () => {
 function updateJulieMode() {
     if (isAutoJulie) {
         chatInputSection.style.display = 'none'; // Hide input when Auto Julie is active
-        if (messages.length > 0) { // Don't auto-generate if no messages yet
-            generateJulieResponse(); // Auto-generate Julie's response
-        }
+        console.log("Auto Julie mode activated");
+        
+        // Add system message for clarity
+        addMessage("Auto Julie mode activated. Julie will handle the conversation automatically.", "System");
+        
+        // Always generate Julie's response
+        generateJulieResponse();
     } else {
         chatInputSection.style.display = 'flex'; // Show input for Manual Julie
         chatInput.placeholder = 'Type as Julie...';
@@ -114,12 +119,15 @@ function updateJulieMode() {
 
 // Function to generate Julie's response automatically
 async function generateJulieResponse() {
-    // Don't generate if already generating or auto Julie is off
-    if (isGenerating || !isAutoJulie) return;
+    // Don't use isGenerating variable at all - instead use a DOM element to track state
+    if (!isAutoJulie || document.getElementById('julieStatus')) {
+        console.log("Skipping Julie response - already processing or auto Julie is off");
+        return;
+    }
     
-    isGenerating = true;
+    console.log("Starting Julie response generation");
     
-    // Add loading indicator
+    // Add loading indicator - this also serves as our "in progress" flag
     const statusElement = document.createElement('div');
     statusElement.id = 'julieStatus';
     statusElement.classList.add('julie-hint');
@@ -127,80 +135,74 @@ async function generateJulieResponse() {
     chatWindow.appendChild(statusElement);
     chatWindow.scrollTop = chatWindow.scrollHeight;
 
-    // Call API to generate Julie's response
-    fetch(`${API_BASE_URL}/chat`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            townPerson: selectedPerson,
-            userInput: "",
-            mode: "interactive",
-            speaker: "Julie",
-            autoJulie: true
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        isGenerating = false;
+    try {
+        const response = await fetch(`${API_BASE_URL}/chat`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                townPerson: selectedPerson,
+                userInput: "",
+                mode: "interactive",
+                speaker: "Julie",
+                autoJulie: true
+            })
+        });
+
+        const data = await response.json();
+        console.log("Response from auto Julie API:", data);
         
-        // Check if data is null or undefined before accessing properties
-        if (!data) {
-            throw new Error('Received null or undefined response from server');
-        }
-        
-        // Check for error in response
+        // Remove loading indicator
+        const loadingElement = document.getElementById('julieStatus');
+        if (loadingElement) loadingElement.remove();
+
         if (data.error) {
             throw new Error(data.error);
         }
-        
-        // Get julieResponse and town person response
-        const julieResponse = data.julieResponse;
-        const townPersonResponse = data.response;
-        
-        // Remove loading indicator
-        const statusElement = document.getElementById('julieStatus');
-        if (statusElement) {
-            statusElement.remove();
+
+        // Add messages to the chat
+        if (data.julieResponse) {
+            addMessage(data.julieResponse, "Julie", data.julieRetrievedInfo);
+        } else {
+            console.warn("No julieResponse in data:", data);
+            addMessage("Julie tried to respond but no message was returned from the server", "System");
         }
         
-        // Add Julie's message
-        if (julieResponse) {
-            addMessage("Julie", julieResponse);
+        if (data.response) {
+            addMessage(data.response, selectedPerson, data.retrieved_info);
+        } else {
+            console.warn("No response in data:", data);
         }
         
-        // Add town person's response
-        if (townPersonResponse) {
-            addMessage(selectedPerson, townPersonResponse, data.retrieved_info);
+        // Check if conversation has ended
+        if (data.conversation_ended) {
+            addMessage("This conversation has reached its conclusion.", "System");
+            
+            // Disable further interaction
+            isAutoJulie = false;
+            
+            // Update UI to show conversation has ended
+            const statusElement = document.createElement('div');
+            statusElement.classList.add('conversation-ended');
+            statusElement.innerHTML = '<div class="alert alert-info">The conversation has ended. You may start a new conversation or review this one.</div>';
+            chatWindow.appendChild(statusElement);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+            
+            // Switch back to direct mode
+            directModeBtn.click();
         }
         
-        // If in Auto Julie mode, continue after delay
-        if (isAutoJulie) {
-            setTimeout(() => {
-                generateJulieResponse();
-            }, 5000); // 5 second delay before next auto response
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        isGenerating = false;
+    } catch (error) {
+        console.error('Error generating Julie response:', error);
         
-        // Remove loading indicator
-        const statusElement = document.getElementById('julieStatus');
-        if (statusElement) {
-            statusElement.remove();
-        }
+        // Remove loading indicator if it exists
+        const loadingElement = document.getElementById('julieStatus');
+        if (loadingElement) loadingElement.remove();
         
         // Show error message
-        const errorElement = document.createElement('div');
-        errorElement.id = 'julieStatus';
-        errorElement.classList.add('julie-error');
-        errorElement.innerHTML = '<div class="alert alert-danger">Error generating Julie\'s response: ' + error.message + '. Please try again or take over the conversation.</div>';
-        
-        chatWindow.appendChild(errorElement);
-        chatWindow.scrollTop = chatWindow.scrollHeight;
-    });
+        addMessage(`Error: ${error.message}`, "System");
+    }
 }
 
 // Function to toggle speaker
@@ -226,10 +228,12 @@ async function checkBackendConnection() {
 // Check backend connection when page loads
 checkBackendConnection();
 
-// Function to add a message to the chat
+// Function to add a message to the chat - updated to store retrievedInfo and make messages clickable
 function addMessage(text, sender, retrievedInfo) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${sender.toLowerCase()}`;
+    // Add clickable cursor style
+    messageDiv.style.cursor = 'pointer';
     
     // Add line number
     const lineNumber = document.createElement('span');
@@ -242,11 +246,40 @@ function addMessage(text, sender, retrievedInfo) {
     content.innerHTML = `<strong>${sender}:</strong> ${text}`;
     messageDiv.appendChild(content);
     
+    // Store the message data including retrievedInfo for later access
+    const messageIndex = messages.length;
+    messages.push({ 
+        sender, 
+        text, 
+        lineNumber: lineCounter - 1,
+        retrievedInfo: retrievedInfo // Store the retrievedInfo with the message
+    });
+    
+    // Add click handler to show this message's retrieved info
+    messageDiv.addEventListener('click', () => {
+        // Highlight the clicked message
+        document.querySelectorAll('.message').forEach(msg => {
+            msg.classList.remove('selected');
+        });
+        messageDiv.classList.add('selected');
+        
+        // Show retrieved info for this message
+        if (messages[messageIndex].retrievedInfo) {
+            showRetrievedInfo(messages[messageIndex].retrievedInfo);
+        } else {
+            // If no retrieved info, show a message
+            retrievedContent.innerHTML = `<div class="retrieved-item">
+                <p>No generation details available for this message.</p>
+            </div>`;
+            retrievedInfo.style.display = 'block';
+            retrievedInfo.classList.add('visible');
+        }
+    });
+    
     chatWindow.appendChild(messageDiv);
     chatWindow.scrollTop = chatWindow.scrollHeight;
-    messages.push({ sender, text, lineNumber: lineCounter - 1 });
 
-    // Show retrieved info if available
+    // Show retrieved info if available when message is first added
     if (retrievedInfo) {
         showRetrievedInfo(retrievedInfo);
     }
@@ -266,15 +299,15 @@ function showRetrievedInfo(info) {
     const speakerLower = info.speaker?.toLowerCase() || '';
     console.log(`Speaker detected: ${speakerLower}`);
     
-    const validSpeakers = ['bob', 'niki', 'lindsay', 'ross', 'michelle'];
-    const hasFullPrompt = validSpeakers.includes(speakerLower) && info.full_prompt;
-    console.log(`Has full prompt: ${hasFullPrompt}, Speaker in validSpeakers: ${validSpeakers.includes(speakerLower)}, full_prompt exists: ${Boolean(info.full_prompt)}`);
-    
     // Always show the full prompt if available
     if (info.full_prompt) {
         console.log(`Showing full prompt for ${speakerLower}`);
+        
+        let title = speakerLower === 'julie' ? 'Julie\'s Generation Prompt:' : `${speakerLower}'s Response Generation:`;
+        
         let html = `
             <div class="retrieved-item">
+                <h4>${title}</h4>
                 <div class="full-prompt">
                     <pre>${info.full_prompt.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
                 </div>
@@ -658,4 +691,61 @@ function updateDecisionStatus(decision) {
         decisionIndicator.classList.add('neutral');
         decisionIndicator.textContent = 'Decision Status: Unknown';
     }
+}
+
+// Add this code right after your other buttons are defined
+// This adds a debug button that directly tests the API
+const debugContainer = document.createElement('div');
+debugContainer.style.margin = '10px 0';
+debugContainer.innerHTML = `
+  <button id="debug-julie-btn" style="background-color: #ff9900; color: white; padding: 5px 10px;">
+    Test Julie API Directly
+  </button>
+`;
+chatWindow.parentNode.insertBefore(debugContainer, chatWindow);
+
+// Add event listener for the debug button
+document.getElementById('debug-julie-btn').addEventListener('click', async () => {
+  console.log("Testing Julie API directly...");
+  
+  // Add a message to the chat window
+  addMessage("Testing Julie API directly...", "System");
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        townPerson: selectedPerson,
+        userInput: "",
+        mode: "interactive",
+        speaker: "Julie",
+        autoJulie: true
+      })
+    });
+    
+    const data = await response.json();
+    console.log("API Response:", data);
+    
+    // Show the response in the chat
+    addMessage(`API Response: ${JSON.stringify(data)}`, "System");
+    
+    // If there are valid responses, display them
+    if (data.julieResponse) {
+      addMessage(data.julieResponse, "Julie");
+    }
+    if (data.response) {
+      addMessage(data.response, selectedPerson);
+    }
+  } catch (error) {
+    console.error("API Test Error:", error);
+    addMessage(`API Test Error: ${error.message}`, "System");
+  }
+});
+
+// Temporary function to trigger Julie directly - add this at the end of your file
+window.triggerJulie = function() {
+    console.log("Manual trigger of Julie response");
+    isAutoJulie = true;
+    generateJulieResponse();
 } 

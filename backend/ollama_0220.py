@@ -74,7 +74,8 @@ class DialogueVectorStore:
     def __init__(self):
         self.character_responses = {}
         self.operator_responses = {}
-        self.response_categories = ['greetings', 'response_to_operator_greetings', 'progression', 'observations', 'general', 'closing']
+        self.operator_response_categories = ['greetings', 'progression', 'observations', 'closing', 'emphasize_danger', 'emphasize_value_of_life', 'give_up_persuading']
+        self.character_response_categories = ['greetings', 'response_to_operator_greetings', 'progression', 'observations', 'general', 'closing']
         # Initialize sentence transformer for semantic similarity
         self.encoder = SentenceTransformer('all-MiniLM-L6-v2')
         
@@ -90,16 +91,19 @@ class DialogueVectorStore:
                         
                     try:
                         data = json.loads(line)
-                        if data.get('character') == 'operator':
-                            # Store operator responses
-                            for category in self.response_categories:
-                                if category in data:
-                                    if category not in self.operator_responses:
-                                        self.operator_responses[category] = []
-                                    self.operator_responses[category].extend(data[category])
+                        try:
+                            if data['character'] == 'operator':
+                                # Store operator responses
+                                for category in self.operator_response_categories:
+                                    if category in data:
+                                        if category not in self.operator_responses:
+                                            self.operator_responses[category] = []
+                                        self.operator_responses[category].extend(data[category])
+                        except:
+                            import pdb; pdb.set_trace()
                         else:
                             # Store character responses
-                            for category in self.response_categories:
+                            for category in self.character_response_categories:
                                 if category not in data:
                                     data[category] = []
                             self.character_responses[data['character']] = data
@@ -245,22 +249,22 @@ else:
     logging.error(f"Current working directory: {os.getcwd()}")
 
 
-# prompt_rag = """System: You are a Fire Department Agent speaking with TownPerson {name} during a fire emergency.
+prompt_rag = """System: You are a Fire Department Agent speaking with TownPerson {name} during a fire emergency.
 
-# {name}'s background:
-# {persona}
+{name}'s background:
+{persona}
 
-# Relevant conversation examples:
-# {context}
+Relevant conversation examples:
+{context}
 
-# Current conversation history:
-# {history}
+Current conversation history:
+{history}
 
-# Based on {name}'s background and the conversation examples, generate a natural and contextually appropriate {speaker} response.
-# Remember to maintain a professional and reassuring tone while addressing the emergency situation.
-# For {name}'s responses, make sure to reference and follow the style of the example responses provided.
+Based on {name}'s background and the conversation examples, generate a natural and contextually appropriate {speaker} response.
+Remember to maintain a professional and reassuring tone while addressing the emergency situation.
+For {name}'s responses, make sure to reference and follow the style of the example responses provided.
 
-# Format your output as a direct response without any name prefix or additional context."""
+Format your output as a direct response without any name prefix or additional context."""
 
 def send_to_ollama(prompt: str) -> str:
     """Query the Ollama model with the given prompt."""
@@ -283,210 +287,225 @@ def clean_response(response: str) -> str:
         response = response.replace("Operator:", "").strip()
     return response
 
-# def simulate_dual_role_conversation(
-#     persona: str,
-#     name: str,
-#     session_id: Optional[str] = None
-# ) -> str:
-#     """
-#     Simulate a conversation using LLM while following a specific conversation flow structure.
-#     """
-#     if session_id is None:
-#         session_id = f"{name}_{int(time.time())}"
+def simulate_dual_role_conversation(
+    persona: str,
+    name: str,
+    session_id: Optional[str] = None
+) -> str:
+    """
+    Simulate a conversation using LLM while following a specific conversation flow structure.
+    """
+    if session_id is None:
+        session_id = f"{name}_{int(time.time())}"
         
-#     # Convert name to lowercase for character matching
-#     character = name.lower()
+    # Convert name to lowercase for character matching
+    character = name.lower()
         
-#     # Auto mode: generate responses following conversation flow structure
-#     history = ""
-#     retrieved_info_list = []
+    # Auto mode: generate responses following conversation flow structure
+    history = ""
+    retrieved_info_list = []
     
-#     # Initial operator greeting
-#     greeting_prompt = prompt_rag.format(
-#         name=name,
-#         persona=persona,
-#         context="Example greeting: Hello hi, this is Fire Department dispatcher Tanay. Are you okay?",
-#         history="",
-#         speaker="Agent"
-#     )
-#     initial_response = clean_response(send_to_ollama(greeting_prompt))
-#     conversation_manager.add_message(session_id, "Agent", initial_response)
-#     history = f"Agent: {initial_response}\n"
+    # Initial operator greeting
+    greeting_prompt = prompt_rag.format(
+        name=name,
+        persona=persona,
+        context="Example greeting: Hello hi, this is Fire Department dispatcher Tanay. Are you okay?",
+        history="",
+        speaker="Agent"
+    )
+    initial_response = clean_response(send_to_ollama(greeting_prompt))
+    conversation_manager.add_message(session_id, "Agent", initial_response)
+    history = f"Agent: {initial_response}\n"
     
-#     # Add retrieved info for initial greeting
-#     operator_greetings = vector_store.operator_responses.get('greetings', [])
-#     retrieved_info_list.append({
-#         'speaker': 'Agent',
-#         'category': 'greetings',
-#         'examples': operator_greetings,
-#         'context': f"Category: Greetings\nSpeaker: Agent\n\nExample responses:\n" + "\n".join([f"- {greeting}" for greeting in operator_greetings])
-#     })
+    # Add retrieved info for initial greeting
+    operator_greetings = vector_store.operator_responses.get('greetings', [])
+    retrieved_info_list.append({
+        'speaker': 'Agent',
+        'category': 'greetings',
+        'examples': operator_greetings,
+        'context': f"Category: Greetings\nSpeaker: Agent\n\nExample responses:\n" + "\n".join([f"- {greeting}" for greeting in operator_greetings])
+    })
     
-#     # Conversation flow structure with prompts
-#     conversation_structure = [
-#         {
-#             "speaker": name,
-#             "prompt": """System: You are {name} responding to a Fire Department Agent during an emergency.
-#             Based on your background: {persona}
+    # Conversation flow structure with prompts
+    conversation_structure = [
+        {
+            "speaker": name,
+            "prompt": """System: You are {name} responding to a Fire Department Agent during an emergency.
+            Based on your background: {persona}
             
-#             Relevant examples:
-#             {context}
+            Relevant examples:
+            {context}
             
-#             Generate a single-sentence response showing initial resistance to evacuation.
-#             Keep your response to one brief sentence that reflects your character's background.
+            Generate a single-sentence response showing initial resistance to evacuation.
+            Keep your response to one brief sentence that reflects your character's background.
             
-#             Current conversation:
-#             {history}
+            Current conversation:
+            {history}
             
-#             Format your output as a direct response without any prefix.""",
-#             "category": "response_to_operator_greetings"
-#         },
-#         {
-#             "speaker": "Agent",
-#             "prompt": """System: You are a Fire Department Agent responding to {name}'s reluctance to evacuate.
-#             Based on these example responses:
-#             {context}
+            Format your output as a direct response without any prefix.""",
+            "category": "response_to_operator_greetings"
+        },
+        {
+            "speaker": "Agent",
+            "prompt": """System: You are a Fire Department Agent responding to {name}'s reluctance to evacuate.
+            Based on these example responses:
+            {context}
             
-#             Generate a single-sentence urgent warning about the fire danger.
-#             Keep your response to one brief sentence that matches the professional and authoritative tone of the examples.
+            Generate a single-sentence urgent warning about the fire danger.
+            Keep your response to one brief sentence that matches the professional and authoritative tone of the examples.
             
-#             Current conversation:
-#             {history}
+            Current conversation:
+            {history}
             
-#             Format your output as a direct response without any prefix.""",
-#             "category": "progression"
-#         },
-#         {
-#             "speaker": name,
-#             "prompt": """System: You are {name} still showing resistance to evacuation.
-#             Based on your background: {persona}
+            Format your output as a direct response without any prefix.""",
+            "category": "emphasize_danger"
+        },
+        {
+            "speaker": name,
+            "prompt": """System: You are {name} still showing resistance to evacuation.
+            Based on your background: {persona}
             
-#             Relevant examples:
-#             {context}
+            Relevant examples:
+            {context}
             
-#             Generate a single-sentence response expressing specific concerns based on your background.
-#             Keep your response to one brief sentence that reflects your character's background.
+            Generate a single-sentence response expressing specific concerns based on your background.
+            Keep your response to one brief sentence that reflects your character's background.
             
-#             Current conversation:
-#             {history}
+            Current conversation:
+            {history}
             
-#             Format your output as a direct response without any prefix.""",
-#             "category": "response_to_operator_greetings"
-#         },
-#         {
-#             "speaker": "Agent",
-#             "prompt": """System: You are a Fire Department Agent making a final plea about life safety.
-#             Based on these example responses:
-#             {context}
+            Format your output as a direct response without any prefix.""",
+            "category": "response_to_operator_greetings"
+        },
+        {
+            "speaker": "Agent",
+            "prompt": """System: You are a Fire Department Agent making a final plea about life safety.
+            Based on these example responses:
+            {context}
             
-#             Generate a single-sentence response emphasizing life over property.
-#             Keep your response to one brief sentence that matches the professional and authoritative tone of the examples.
+            Generate a single-sentence response emphasizing life over property.
+            Keep your response to one brief sentence that matches the professional and authoritative tone of the examples.
             
-#             Current conversation:
-#             {history}
+            Current conversation:
+            {history}
             
-#             Format your output as a direct response without any prefix.""",
-#             "category": "progression"
-#         },
-#         {
-#             "speaker": name,
-#             "prompt": """System: You are {name} starting to agree to evacuate.
-#             Based on your background: {persona}
+            Format your output as a direct response without any prefix.""",
+            "category": "emphasize_value_of_life"
+        },
+        {
+            "speaker": name,
+            "prompt": """System: You are {name} starting to agree to evacuate.
+            Based on your background: {persona}
             
-#             Relevant examples:
-#             {context}
+            Relevant examples:
+            {context}
             
-#             Generate a single-sentence response showing your agreement to evacuate.
-#             Keep your response to one brief sentence that reflects your character's background.
+            Generate a single-sentence response showing your agreement to evacuate.
+            Keep your response to one brief sentence that reflects your character's background.
             
-#             Current conversation:
-#             {history}
+            Current conversation:
+            {history}
             
-#             Format your output as a direct response without any prefix.""",
-#             "category": "progression"
-#         },
-#         {
-#             "speaker": "Agent",
-#             "prompt": """System: You are a Fire Department Agent responding to {name}'s agreement to evacuate.
-#             Based on these example responses:
-#             {context}
+            Format your output as a direct response without any prefix.""",
+            "category": "progression"
+        },
+        {
+            "speaker": "Agent",
+            "prompt": """System: You are a Fire Department Agent responding to {name}'s agreement to evacuate.
+            Based on these example responses:
+            {context}
             
-#             Generate a single-sentence response about the importance of evacuating.
-#             Keep your response to one brief sentence that matches the professional and authoritative tone of the examples.
+            Generate a single-sentence response about the importance of evacuating.
+            Keep your response to one brief sentence that matches the professional and authoritative tone of the examples.
             
-#             Current conversation:
-#             {history}
+            Current conversation:
+            {history}
             
-#             Format your output as a direct response without any prefix.""",
-#             "category": "progression"
-#         },
-#         {
-#             "speaker": name,
-#             "prompt": """System: You are {name} finally agreeing to evacuate.
-#             Based on your background: {persona}
+            Format your output as a direct response without any prefix.""",
+            "category": "progression"
+        },
+        {
+            "speaker": name,
+            "prompt": """System: You are {name} finally agreeing to evacuate.
+            Based on your background: {persona}
             
-#             Relevant examples:
-#             {context}
+            Relevant examples:
+            {context}
             
-#             Generate a single-sentence response showing your agreement to evacuate.
-#             Keep your response a few words.
+            Generate a single-sentence response showing your agreement to evacuate.
+            Keep your response a few words.
             
-#             Current conversation:
-#             {history}
+            Current conversation:
+            {history}
             
-#             Format your output as a direct response without any prefix.""",
-#             "category": "closing"
-#         }
-#     ]
+            Format your output as a direct response without any prefix.""",
+            "category": "closing"
+        },
+        {
+            "speaker": "Agent",
+            "prompt": """System: You are a Fire Department Agent responding to {name}'s agreement to evacuate.
+            Based on these example responses:
+            {context}
+            
+            Generate a single-sentence response to end the conversation.
+            Keep your response to one brief sentence that matches the professional and authoritative tone of the examples.
+            
+            Current conversation:
+            {history}
+            
+            Format your output as a direct response without any prefix.""",
+            "category": "closing"
+        }
+    ]
     
-#     # Generate responses following the structure
-#     for turn in conversation_structure:
-#         # Get relevant examples based on the category
-#         if turn["speaker"] == name:
-#             # Get character-specific examples
-#             responses = vector_store.character_responses[character.lower()].get(turn["category"], [])
-#             context = f"Category: {turn['category']}\nSpeaker: {name}\n\nExample responses:\n" + "\n".join([f"- {response}" for response in responses])
-#             retrieved_info_list.append({
-#                 'speaker': name,
-#                 'category': turn["category"],
-#                 'examples': responses,
-#                 'context': context
-#             })
-#         else:
-#             # Get operator examples
-#             responses = vector_store.operator_responses.get(turn["category"], [])
-#             context = f"Category: {turn['category']}\nSpeaker: Agent\n\nExample responses:\n" + "\n".join([f"- {response}" for response in responses])
-#             retrieved_info_list.append({
-#                 'speaker': 'Agent',
-#                 'category': turn["category"],
-#                 'examples': responses,
-#                 'context': context
-#             })
+    # Generate responses following the structure
+    for turn in conversation_structure:
+        # Get relevant examples based on the category
+        if turn["speaker"] == name:
+            # Get character-specific examples
+            responses = vector_store.character_responses[character.lower()].get(turn["category"], [])
+            context = f"Category: {turn['category']}\nSpeaker: {name}\n\nExample responses:\n" + "\n".join([f"- {response}" for response in responses])
+            retrieved_info_list.append({
+                'speaker': name,
+                'category': turn["category"],
+                'examples': responses,
+                'context': context
+            })
+        else:
+            # Get operator examples
+            responses = vector_store.operator_responses.get(turn["category"], [])
+            context = f"Category: {turn['category']}\nSpeaker: Agent\n\nExample responses:\n" + "\n".join([f"- {response}" for response in responses])
+            retrieved_info_list.append({
+                'speaker': 'Agent',
+                'category': turn["category"],
+                'examples': responses,
+                'context': context
+            })
         
-#         # Generate response using the original prompt
-#         prompt = turn["prompt"].format(
-#             name=name,
-#             persona=persona,
-#             context=context,
-#             history=history
-#         )
+        # Generate response using the original prompt
+        prompt = turn["prompt"].format(
+            name=name,
+            persona=persona,
+            context=context,
+            history=history
+        )
         
-#         # print(f"\nGenerating response for {turn['speaker']}...")
-#         response = clean_response(send_to_ollama(prompt))
-#         # print(f"Generated response: {response}")
-#         print("-" * 50)
+        # print(f"\nGenerating response for {turn['speaker']}...")
+        response = clean_response(send_to_ollama(prompt))
+        # print(f"Generated response: {response}")
+        print("-" * 50)
         
-#         conversation_manager.add_message(session_id, turn["speaker"], response)
-#         history += f"{turn['speaker']}: {response}\n"
+        conversation_manager.add_message(session_id, turn["speaker"], response)
+        history += f"{turn['speaker']}: {response}\n"
         
-#         # Add the response to conversation history
-#         response_speaker = name  # In interactive mode, response always comes from town person
-#         conversation_manager.add_message(session_id, response_speaker, response)
-#         # print(f'Added response to history: {response_speaker}: {response}')
+        # Add the response to conversation history
+        response_speaker = name  # In interactive mode, response always comes from town person
+        conversation_manager.add_message(session_id, response_speaker, response)
+        # print(f'Added response to history: {response_speaker}: {response}')
     
-#     print("\n=== Final Conversation ===")
-#     print(history)
-#     return history, retrieved_info_list
+    print("\n=== Final Conversation ===")
+    print(history)
+    return history, retrieved_info_list
 
 # name = 'bob'
 # conversation_structure = [
