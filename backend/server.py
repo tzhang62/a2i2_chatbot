@@ -392,7 +392,7 @@ async def chat(request: Request):
                                 if "operator" == line.split(':')[0].lower():
                                     if "yes" in emphasize_danger_check(line).lower():
                                         emphasizes_danger_final = True
-                                        import pdb; pdb.set_trace()
+            
                                         break
                         
                     if history and message_count >= 3:
@@ -838,7 +838,7 @@ async def chat(request: Request):
             try:
                 print(f"Starting auto mode generation for {town_person}")
                 # Generate the entire conversation at once
-                transcript, retrieved_info = simulate_dual_role_conversation(
+                transcript, retrieved_info, decision = simulate_dual_role_conversation(
                     persona_data[town_person_lower],
                     town_person # Keep original case for display
                 )
