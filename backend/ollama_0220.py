@@ -259,7 +259,7 @@ vector_store = DialogueVectorStore()
 conversation_manager = ConversationManager()
 
 # Load dialogues if the file exists
-dialogue_file = '/Users/tzhang/projects/A2I2/data_for_train/characterlines.jsonl'
+dialogue_file = 'data_for_train/characterlines.jsonl'
 if os.path.exists(dialogue_file):
     
     vector_store.add_dialogues(dialogue_file)
