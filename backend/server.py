@@ -36,9 +36,9 @@ BASE_DIR = os.getenv('A2I2_BASE_DIR', os.path.dirname(os.path.dirname(os.path.ab
 
 # Configure paths relative to base directory
 OUTPUT_FILE_PATH = os.path.join(BASE_DIR, "results/answer_80.jsonl")
-PERSONA_FILE_PATH = os.path.join("/Users/tzhang/projects/A2I2/data_for_train/persona.json")
-DIAL_FILE_PATH = os.path.join("/Users/tzhang/projects/A2I2/data_for_train/character_lines.jsonl")
-PYTHON_SCRIPT = os.path.join("/Users/tzhang/projects/A2I2/backend/ollama_0220.py")
+PERSONA_FILE_PATH = os.path.join("data_for_train/persona.json")
+DIAL_FILE_PATH = os.path.join("data_for_train/character_lines.jsonl")
+PYTHON_SCRIPT = os.path.join("backend/ollama_0220.py")
 
 # Load persona and dialogue data
 def load_json_file(file_path):

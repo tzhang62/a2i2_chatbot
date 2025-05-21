@@ -1,0 +1,7 @@
+{
+  "conversation": "Agent: Hello, hi, this is Fire Department dispatcher Tanay. Are you okay? Can you tell me what's going on with you and your passengers?\nross: We're stranded after a road accident with a bunch of elderly patients who can't move on their own.\nAgent: I'm sending the transportation vehicle immediately to escort you and your passengers to safety, we have multiple ambulances en route to assist with medical evacuation if necessary.\nross: We'll need a transport vehicle that can accommodate all of my mobility-impaired patients, as they cannot evacuate on their own.\nAgent: We have arranged for an ambulance equipped with a stretcher and medical supplies to be sent to assist you immediately, dispatch has been notified.\nross: I appreciate your assistance in getting my passengers safely evacuated.\n",
+  "decision": "Do not evacuate",
+  "timestamp": "2025-05-15T11:13:44.036287",
+  "town_person": "ross",
+  "persona": "Ross is a van driver stranded with elderly patients after a road accident during evacuation. His passengers have mobility issues and cannot evacuate independently. Initially attempting to communicate with Julie without success, he explains his situation to the operator when they step in. Ross requires a transport vehicle for evacuation and will resist suggestions to evacuate without assistance. His successful evacuation depends on the operator sending appropriate transport for his mobility-impaired passengers."
+}
