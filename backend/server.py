@@ -335,7 +335,7 @@ async def chat(request: Request):
                     # Get decision response if appropriate
                     updated_history = conversation_manager.get_history(session_id, max_turns=11)
                     if updated_history and len(updated_history.split('\n')) >= 3:
-                        decision_response = decision_making(updated_history)
+                        decision_response = decision_making(updated_history,town_person_lower)
                     
                     print("Returning Auto Julie response")
                     # Return both Julie's message, retrieved info, and town person's response
@@ -372,7 +372,7 @@ async def chat(request: Request):
                 
                 # Get decision response if we have enough messages
                 if history and message_count >= 3:
-                    decision_response = decision_making(history)
+                    decision_response = decision_making(history,town_person_lower)
                     print(f"Decision response: {decision_response}")
                 
                 # Special structure for Bob with branching logic
@@ -384,13 +384,19 @@ async def chat(request: Request):
                     ending_conversation = False
                     emphasizes_danger_final = False
                     if history and message_count >= 5:
+                        i=0
                         for line in history.split('\n'):
-                            if "yes" in emphasize_danger_check(line).lower():
-                                emphasizes_danger_final = True
-                                break
+                            i+=1
+                            if i >=4:
+                                ##check if the current line is from operator
+                                if "operator" == line.split(':')[0].lower():
+                                    if "yes" in emphasize_danger_check(line).lower():
+                                        emphasizes_danger_final = True
+                                        import pdb; pdb.set_trace()
+                                        break
                         
                     if history and message_count >= 3:
-                        decision_response = decision_making(history)
+                        decision_response = decision_making(history,town_person_lower)
                         print(f"Decision response: {decision_response}")
                         
                         last_message = user_input.lower()
@@ -451,7 +457,7 @@ async def chat(request: Request):
                     elif message_count == 7:
                         # Final resolution - Either evacuation agreement or final refusal
                         print(f"emphasizes_value_of_life_response: {emphasizes_value_of_life_response}")
-                        print(f"emphasizes_danger_response: {emphasizes_danger_response}")
+                        print(f"emphasizes_danger_final: {emphasizes_danger_final}")
                         if emphasizes_value_of_life or emphasizes_danger_final:
                             category = "progression"
                             print(f"Category: {category}")
