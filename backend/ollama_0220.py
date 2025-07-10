@@ -40,15 +40,6 @@ logging.basicConfig(
 for module in ['urllib3', 'requests', 'http.client', 'asyncio', 'websockets']:
     logging.getLogger(module).setLevel(logging.ERROR)
 
-# Define the prompt template
-# prompt_1 = """System: The following conversation is between a Fire Department Agent and a TownPerson {name} who needs to be rescued during a fire emergency. 
-# Here is an introduction of {name}:
-# {persona}
-# Use this example as a guide:
-# {dialogue}
-# Now, generating a new conversation between the Agent and {name}. Start with Agent's initial message. Do not include any additional utterances or explanations.
-# """
-
 prompt_1 = """System: The following conversation is between a Fire Department Agent and a TownPerson {name} who needs to be rescued during a fire emergency. 
 Here is the persona of {name}:
 {persona}

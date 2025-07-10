@@ -320,7 +320,7 @@ async def chat(request: Request):
                     print(f"Town person's response generated: {response}")
                     
                     # Add town person's response to history
-                    conversation_manager.add_message(session_id, town_person, response)
+                    # conversation_manager.add_message(session_id, town_person, response)
                     
                     # Prepare retrieved info
                     if isinstance(retrieved_info, dict):
