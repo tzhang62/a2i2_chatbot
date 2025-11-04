@@ -349,7 +349,7 @@ async def chat(request: Request):
                     
                     # Get decision response if appropriate
                     updated_history = conversation_manager.get_history(session_id, max_turns=11)
-                    if updated_history and len(updated_history.split('\n')) >= 3:
+                    if updated_history and len(updated_history.split('\n')) >= 0:
                         decision_response = decision_making(updated_history,town_person_lower)
                     
                     print("Returning Auto Julie response")
@@ -386,7 +386,7 @@ async def chat(request: Request):
                 print(f"Interactive mode: message count = {message_count}")
                 
                 # Get decision response if we have enough messages
-                if history and message_count >= 3:
+                if history and message_count >= 0:
                     decision_response = decision_making(history,town_person_lower)
                     print(f"Decision response: {decision_response}")
                 
@@ -410,7 +410,7 @@ async def chat(request: Request):
             
                                         break
                         
-                    if history and message_count >= 3:
+                    if history and message_count >= 0:
                         decision_response = decision_making(history,town_person_lower)
                         print(f"Decision response: {decision_response}")
                         
