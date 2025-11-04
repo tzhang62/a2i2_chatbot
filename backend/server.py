@@ -13,21 +13,26 @@ import time
 app = FastAPI()
 
 # Enable CORS with proper configuration for production
+# TODO: After deployment, replace "*" with your actual Netlify URL
+# Example: allow_origins=["https://your-app.netlify.app", "http://localhost:3000"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
+    allow_origins=["*"],  # IMPORTANT: Update this with your Netlify URL after deployment
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Add security headers middleware
+# TODO: After deployment, add your actual Render and Netlify domains
 app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=[
         "localhost",
-        #"*.onrender.com",  # Allow all Render.com subdomains
-        #"emergency-chatbot-backend.onrender.com"  # Your specific Render domain
+        "*.onrender.com",  # Allow all Render.com subdomains
+        # Add your specific domains after deployment:
+        # "your-app.onrender.com",
+        # "your-app.netlify.app"
     ]
 )
 
