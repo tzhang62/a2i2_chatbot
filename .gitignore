@@ -39,4 +39,9 @@ Thumbs.db
 
 # Project specific
 results/
-*.log 
+*.log
+
+# Environment variables - DO NOT COMMIT!
+.env
+.env.local
+.env.*.local 

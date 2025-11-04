@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from ollama_0220_openai import simulate_interactive_single_turn, conversation_manager, decision_making, emphasize_danger_check, emphasize_value_of_life_check, ending_conversation_check, mentions_fire_check, keep_asking_questions_check, simulate_dual_role_conversation, ask_about_children_check, ask_about_parents_check, engagement_check
+from ollama_0220 import simulate_interactive_single_turn, conversation_manager, decision_making, emphasize_danger_check, emphasize_value_of_life_check, ending_conversation_check, mentions_fire_check, keep_asking_questions_check, simulate_dual_role_conversation, ask_about_children_check, ask_about_parents_check, engagement_check
 import subprocess
 import os
 import json
@@ -56,11 +56,6 @@ niki_data = None
 lindsay_data = None
 ross_data = None
 michelle_data = None
-mary_data = None
-ben_data = None
-ana_data = None
-tom_data = None
-mia_data = None
 with open(DIAL_FILE_PATH, 'r') as f:
     for line in f:
         dialogue_data_line = json.loads(line)
@@ -75,16 +70,6 @@ with open(DIAL_FILE_PATH, 'r') as f:
             ross_data = dialogue_data_line
         if dialogue_data_line ['character'] == 'michelle':
             michelle_data = dialogue_data_line
-        if dialogue_data_line ['character'] == 'mary':
-            mary_data = dialogue_data_line
-        if dialogue_data_line ['character'] == 'ben':
-            ben_data = dialogue_data_line
-        if dialogue_data_line ['character'] == 'ana':
-            ana_data = dialogue_data_line
-        if dialogue_data_line ['character'] == 'tom':
-            tom_data = dialogue_data_line
-        if dialogue_data_line ['character'] == 'mia':
-            mia_data = dialogue_data_line
         if dialogue_data_line ['character'] == 'operator':
             operator_data = dialogue_data_line
         if dialogue_data_line ['character'] == 'julie':
@@ -513,16 +498,19 @@ async def chat(request: Request):
                     mentions_fire = False
                     ending_conversation = False
                     if history and message_count > 2 and speaker == "Operator":
-                        last_message = history
+                        last_message = user_input.lower()
                         # Check if message emphasizes fire danger
-                        keep_asking_questions_response = keep_asking_questions_check(history)
+                        keep_asking_questions_response = keep_asking_questions_check(last_message)
                         if "yes" in keep_asking_questions_response.lower():
                             keep_asking_questions = True
-                        if ending_conversation_check(history):
-                            if "yes" in ending_conversation_check(history).lower():
-                                ending_conversation = True
-                            else:
-                                ending_conversation = False
+                        if any(keyword in last_message for keyword in ["fine", "alright", "sure", "ok","sounds good","thank",'thanks',"bye","goodbye","see you"]):
+                            ending_conversation = True
+                        # ending_conversation_response = ending_conversation_check(last_message)
+                        # if "yes" in ending_conversation_response.lower():
+                        #     ending_conversation = True
+                        mentions_fire_response = mentions_fire_check(last_message)
+                        if "yes" in mentions_fire_response.lower():
+                            mentions_fire = True
                     category = ""
                     if message_count == 1:
                         category = "greetings"
@@ -745,11 +733,8 @@ async def chat(request: Request):
                             engagement = True
                             
                     ending_conversation = False
-                    if ending_conversation_check(history):
-                        if "yes" in ending_conversation_check(history).lower():
-                            ending_conversation = True
-                        else:
-                            ending_conversation = False
+                    if any(keyword in last_message for keyword in ["fine", "alright", "sure", "ok","good","thank",'thanks',"bye","goodbye","see you"]):
+                        ending_conversation = True
                     
                     category = ""
                     if message_count == 1:
@@ -789,141 +774,7 @@ async def chat(request: Request):
                         "prompt": f"You are roleplaying as Michelle, \nMichelle's background: {persona_data['michelle']}\nPrevious conversation:\n{history}\n{prompt_content}\n please generate a response based on the last message and keep your response natural and brief. Only generate utterances, no system messages.",
                         "category": category
                     }
-                elif town_person_lower == "mary":
-                    category = ""
-                    if message_count == 1:
-                        category = "greetings"
-                        context = ''
-                        prompt_content = f"Generate an initial response to the operator's or julie's greeting."
-                    elif message_count == 3:
-                        category = "response_to_operator_greetings"
-                        context = ''
-                        prompt_content = f"Generate a response to the operator's greeting or answer the operator's question."
-                    elif message_count == 5:
-                        category = "progression"
-                        context = ''
-                        prompt_content = f"Generate a response to the operator."
-                    elif message_count == 7:
-                        category = "closing"
-                        context = ''
-                        prompt_content = f"Generate a final response to determine whether you want to be evacuated or not."
-                    else:
-                        category = "closing"
-                        context = ''
-                        prompt_content = f"Generate a final response to operator or julie."
-                    turn = {
-                        "speaker": "mary",
-                        "prompt": f"You are roleplaying as Mary, \nMary's background: {persona_data['mary']}\nPrevious conversation:\n{history}\n{prompt_content}\n please generate a response based on the last message and keep your response natural and brief. Only generate utterances, no system messages.",
-                        "category": category
-                    }
-                elif town_person_lower == "ben":
-                    category = ""
-                    if message_count == 1:
-                        category = "greetings"
-                        context = ''
-                        prompt_content = f"Generate an initial response to the operator's or julie's greeting."
-                    elif message_count == 3:
-                        category = "response_to_operator_greetings"
-                        context = ''
-                        prompt_content = f"Generate a response to the operator's greeting or answer the operator's question."
-                    elif message_count == 5:
-                        category = "progression"
-                        context = ''
-                        prompt_content = f"Generate a response to the operator."
-                    elif message_count == 7:
-                        category = "closing"
-                        context = ''
-                        prompt_content = f"Generate a final response to determine whether you want to be evacuated or not."
-                    else:
-                        category = "closing"
-                        context = ''
-                        prompt_content = f"Generate a final response to operator or julie."
-                    turn = {
-                        "speaker": "ben",
-                        "prompt": f"You are roleplaying as Ben, \nBen's background: {persona_data['ben']}\nPrevious conversation:\n{history}\n{prompt_content}\n please generate a response based on the last message and keep your response natural and brief. Only generate utterances, no system messages.",
-                        "category": category
-                    }
-                elif town_person_lower == "ana":
-                    category = ""
-                    if message_count == 1:
-                        category = "greetings"
-                        context = ''
-                        prompt_content = f"Generate an initial response to the operator's or julie's greeting."
-                    elif message_count == 3:
-                        category = "response_to_operator_greetings"
-                        context = ''
-                        prompt_content = f"Generate a response to the operator's greeting or answer the operator's question."
-                    elif message_count == 5:
-                        category = "progression"
-                        context = ''
-                        prompt_content = f"Generate a response to the operator."
-                    elif message_count == 7:
-                        category = "closing"
-                        context = ''
-                        prompt_content = f"Generate a final response to determine whether you want to be evacuated or not."
-                    else:
-                        category = "closing"
-                        context = ''
-                        prompt_content = f"Generate a final response to operator or julie."
-                    turn = {
-                        "speaker": "ana",
-                        "prompt": f"You are roleplaying as Ana, \nAna's background: {persona_data['ana']}\nPrevious conversation:\n{history}\n{prompt_content}\n please generate a response based on the last message and keep your response natural and brief. Only generate utterances, no system messages.",
-                        "category": category
-                    }
-                elif town_person_lower == "tom":
-                    category = ""
-                    if message_count == 1:
-                        category = "greetings"
-                        context = ''
-                        prompt_content = f"Generate an initial response to the operator's or julie's greeting."
-                    elif message_count == 3:
-                        category = "response_to_operator_greetings"
-                        context = ''
-                        prompt_content = f"Generate a response to the operator's greeting or answer the operator's question."
-                    elif message_count == 5:
-                        category = "progression"
-                        context = ''
-                        prompt_content = f"Generate a response to the operator."
-                    elif message_count == 7:
-                        category = "closing"
-                        context = ''
-                        prompt_content = f"Generate a final response to determine whether you want to be evacuated or not."
-                    else:
-                        category = "closing"
-                        context = ''
-                        prompt_content = f"Generate a final response to operator or julie."
-                    turn = {
-                        "speaker": "tom",
-                        "prompt": f"You are roleplaying as Tom, \nTom's background: {persona_data['tom']}\nPrevious conversation:\n{history}\n{prompt_content}\n please generate a response based on the last message and keep your response natural and brief. Only generate utterances, no system messages.",
-                        "category": category
-                    }
-                elif town_person_lower == "mia":
-                    category = ""
-                    if message_count == 1:
-                        category = "greetings"
-                        context = ''
-                        prompt_content = f"Generate an initial response to the operator's or julie's greeting."
-                    elif message_count == 3:
-                        category = "response_to_operator_greetings"
-                        context = ''
-                        prompt_content = f"Generate a response to the operator's greeting or answer the operator's question."
-                    elif message_count == 5:
-                        category = "progression"
-                        context = ''
-                        prompt_content = f"Generate a response to the operator."
-                    elif message_count == 7:
-                        category = "closing"
-                        context = ''
-                        prompt_content = f"Generate a final response to determine whether you want to be evacuated or not."
-                    else:
-                        category = "closing"
-                        context = ''
-                        prompt_content = f"Generate a final response to operator or julie."
-                    turn = {
-                        "speaker": "mia",
-                        "prompt": f"You are roleplaying as Mia, \nMia's background: {persona_data['mia']}\nPrevious conversation:\n{history}\n{prompt_content}\n please generate a response based on the last message and keep your response natural and brief. Only generate utterances, no system messages.",
-                        "category": category
-                    }
+                        
                 try:
                     # Generate town person's response
                     response, retrieved_info = simulate_interactive_single_turn(
@@ -968,7 +819,8 @@ async def chat(request: Request):
                             "full_prompt": turn["prompt"],
                             "speaker": town_person_lower
                         }
-                    
+                    #print(retrieved_info)
+                    #print(f"Retrieved info for {town_person_lower}: {retrieved_info}")
                     print(f"Decision response: {decision_response}")    
                     return {
                         "response": response,
@@ -993,14 +845,12 @@ async def chat(request: Request):
                 
                 print(f"Generated transcript: {transcript}")
                 print(f"Retrieved info: {retrieved_info}")
-                print(f"Decision: {decision}")
                 
                 return {
                     "transcript": transcript,
                     "retrieved_info": retrieved_info,
-                    "is_complete": True,
-                    "decision": decision}
-                 
+                    "is_complete": True
+                }
             except Exception as e:
                 print(f"Error in auto mode generation: {str(e)}")
                 traceback.print_exc()

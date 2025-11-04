@@ -4,13 +4,14 @@ const chatInput = document.getElementById('chat-input');
 const sendBtn = document.getElementById('send-btn');
 const autoModeBtn = document.getElementById('auto-mode-btn');
 const interactiveModeBtn = document.getElementById('interactive-mode-btn');
+const restartBtn = document.getElementById('restart-btn');
 const chatInputSection = document.getElementById('chat-input-section');
 const speakerToggleBtn = document.getElementById('speaker-toggle-btn');
 const retrievedInfo = document.getElementById('retrieved-info');
 const retrievedContent = document.getElementById('retrieved-content');
 
-// API Configuration
-const API_BASE_URL = 'http://localhost:8001';
+// API Configuration - loaded from config.js
+const API_BASE_URL = window.API_CONFIG ? window.API_CONFIG.BASE_URL : 'http://localhost:8001';
 
 // Get selected person from session storage
 const selectedPerson = sessionStorage.getItem('selectedPerson');
@@ -562,6 +563,14 @@ async function generateAutoChat() {
                 }
             }
 
+            // Update decision status if available in auto mode
+            if (data.decision) {
+                console.log("Decision received in auto mode:", data.decision);
+                updateDecisionStatus(data.decision);
+            } else {
+                console.log("No decision received in auto mode response");
+            }
+
             // Re-enable controls after generation
             autoModeBtn.disabled = false;
             interactiveModeBtn.disabled = false;
@@ -619,9 +628,65 @@ function enableAutoMode() {
     generateAutoChat();
 }
 
+// Function to restart conversation
+async function restartConversation() {
+    // Show confirmation dialog
+    const confirmed = confirm('Are you sure you want to restart the conversation? All messages will be cleared.');
+    
+    if (!confirmed) {
+        return;
+    }
+    
+    console.log('Restarting conversation...');
+    
+    // Clear frontend state
+    chatWindow.innerHTML = '';
+    retrievedContent.innerHTML = '';
+    retrievedInfo.classList.remove('visible');
+    retrievedInfo.style.display = 'none';
+    messages = [];
+    resetLineCounter();
+    resetDecisionStatus();
+    
+    // Reset speaker to Operator
+    currentSpeaker = 'Operator';
+    speakerToggleBtn.textContent = `Switch to ${selectedPerson}`;
+    chatInput.placeholder = 'Type Operator\'s message...';
+    
+    // Clear backend conversation history (if needed)
+    try {
+        // You can add an API call here to clear backend session if implemented
+        // For now, the backend will handle new session on next message
+        console.log('Frontend state cleared');
+    } catch (error) {
+        console.error('Error clearing backend session:', error);
+    }
+    
+    // Restart based on current mode
+    if (isAutoMode) {
+        // If in auto mode, regenerate the conversation
+        addMessage('Restarting conversation in Auto Mode...', 'System');
+        setTimeout(() => {
+            generateAutoChat();
+        }, 500);
+    } else {
+        // If in interactive mode, show a fresh start message
+        if (useJulie && isAutoJulie) {
+            addMessage('Conversation restarted. Auto Julie will begin the conversation.', 'System');
+            // Restart Julie if in auto Julie mode
+            setTimeout(() => {
+                generateJulieResponse();
+            }, 500);
+        } else {
+            addMessage(`Conversation restarted. You can now chat with ${selectedPerson}.`, 'System');
+        }
+    }
+}
+
 // Event listeners
 interactiveModeBtn.addEventListener('click', enableInteractiveMode);
 autoModeBtn.addEventListener('click', enableAutoMode);
+restartBtn.addEventListener('click', restartConversation);
 sendBtn.addEventListener('click', sendMessage);
 chatInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
@@ -693,59 +758,4 @@ function updateDecisionStatus(decision) {
     }
 }
 
-// Add this code right after your other buttons are defined
-// This adds a debug button that directly tests the API
-const debugContainer = document.createElement('div');
-debugContainer.style.margin = '10px 0';
-debugContainer.innerHTML = `
-  <button id="debug-julie-btn" style="background-color: #ff9900; color: white; padding: 5px 10px;">
-    Test Julie API Directly
-  </button>
-`;
-chatWindow.parentNode.insertBefore(debugContainer, chatWindow);
-
-// Add event listener for the debug button
-document.getElementById('debug-julie-btn').addEventListener('click', async () => {
-  console.log("Testing Julie API directly...");
-  
-  // Add a message to the chat window
-  addMessage("Testing Julie API directly...", "System");
-  
-  try {
-    const response = await fetch(`${API_BASE_URL}/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        townPerson: selectedPerson,
-        userInput: "",
-        mode: "interactive",
-        speaker: "Julie",
-        autoJulie: true
-      })
-    });
-    
-    const data = await response.json();
-    console.log("API Response:", data);
-    
-    // Show the response in the chat
-    addMessage(`API Response: ${JSON.stringify(data)}`, "System");
-    
-    // If there are valid responses, display them
-    if (data.julieResponse) {
-      addMessage(data.julieResponse, "Julie");
-    }
-    if (data.response) {
-      addMessage(data.response, selectedPerson);
-    }
-  } catch (error) {
-    console.error("API Test Error:", error);
-    addMessage(`API Test Error: ${error.message}`, "System");
-  }
-});
-
-// Temporary function to trigger Julie directly - add this at the end of your file
-window.triggerJulie = function() {
-    console.log("Manual trigger of Julie response");
-    isAutoJulie = true;
-    generateJulieResponse();
-} 
+// Debug button and trigger function removed for cleaner interface  

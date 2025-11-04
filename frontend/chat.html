@@ -14,6 +14,7 @@
       <div class="mode-buttons">
         <button id="auto-mode-btn">Auto Mode</button>
         <button id="interactive-mode-btn" class="active">Interactive Mode</button>
+        <button id="restart-btn" class="restart-btn">🔄 Restart Conversation</button>
       </div>
     </div>
     
@@ -27,20 +28,21 @@
       <!-- Messages will be inserted here -->
     </div>
     
+    <div id="chat-input-section" class="chat-input-section">
+      <button id="speaker-toggle-btn" class="speaker-toggle-btn">Switch to Bob</button>
+      <input type="text" id="chat-input" placeholder="Type Operator's message...">
+      <button id="send-btn">Send</button>
+    </div>
+    
     <div id="retrieved-info" class="retrieved-info">
       <h3>Retrieved Information</h3>
       <div id="retrieved-content" class="retrieved-content">
         <!-- Retrieved information will be displayed here -->
       </div>
     </div>
-    
-    <div id="chat-input-section" class="chat-input-section">
-      <button id="speaker-toggle-btn" class="speaker-toggle-btn">Switch to Bob</button>
-      <input type="text" id="chat-input" placeholder="Type Operator's message...">
-      <button id="send-btn">Send</button>
-    </div>
   </div>
   
+  <script src="config.js"></script>
   <script src="js/chat.js"></script>
 </body>
 </html>

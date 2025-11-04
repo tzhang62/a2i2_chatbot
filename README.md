@@ -7,6 +7,7 @@ An interactive chatbot system that simulates conversations between Fire Departme
 - Python 3.8 or higher
 - Node.js and npm (for frontend)
 - Git
+- OpenAI API key (sign up at https://platform.openai.com/)
 
 ## Installation
 
@@ -47,7 +48,28 @@ cd backend
 pip install -r requirements.txt
 ```
 
-5. Install frontend dependencies:
+5. Set up environment variables:
+Create a `.env` file in the project root directory:
+```bash
+# In the project root directory (A2I2/)
+touch .env
+```
+
+Add your OpenAI API key to the `.env` file:
+```
+OPENAI_API_KEY=your_openai_api_key_here
+```
+
+**Important:** Never commit your `.env` file to version control. It should be listed in `.gitignore`.
+
+To get your OpenAI API key:
+- Go to https://platform.openai.com/
+- Sign up or log in
+- Navigate to API keys section
+- Create a new API key
+- Copy and paste it into your `.env` file
+
+6. Install frontend dependencies:
 ```bash
 cd ../frontend
 ```
@@ -85,7 +107,8 @@ http://localhost:8000
 A2I2/
 ├── backend/
 │   ├── server.py
-│   ├── ollama_0220.py
+│   ├── ollama_0220.py (deprecated - uses Ollama)
+│   ├── ollama_0220_openai.py (uses OpenAI API)
 │   ├── requirements.txt
 │   └── data_for_train/
 ├── frontend/
@@ -94,6 +117,7 @@ A2I2/
 │   ├── css/
 │   │   └── styles.css
 │   └── index.html
+├── .env (not tracked in git)
 └── README.md
 ```
 
@@ -107,8 +131,12 @@ A2I2/
 
 ## Configuration
 
-- Backend API URL: Configure in `frontend/js/chat.js`
-- Port settings: Backend runs on port 8001, frontend on port 3000
+- **Backend API URL:** Configure in `frontend/js/chat.js`
+- **Port settings:** Backend runs on port 8001, frontend on port 8000
+- **OpenAI Model:** The system uses `gpt-4o-mini` by default. You can change this in `backend/ollama_0220_openai.py` in the `send_to_openai()` function
+- **Environment Variables:**
+  - `OPENAI_API_KEY`: Your OpenAI API key (required)
+  - `A2I2_BASE_DIR`: Optional base directory for the application
 
 ## next time using server
 ```bash
@@ -147,6 +175,31 @@ git commit -m "Your commit message describing the changes"
 git push origin main  # or your branch name
 ```
 
+
+## Migration from Ollama to OpenAI
+
+This project has been updated to use OpenAI API instead of Ollama for the language model backend. Here are the key changes:
+
+### What Changed:
+- **New file:** `backend/ollama_0220_openai.py` replaces the Ollama implementation
+- **Updated dependencies:** `openai` package added to `requirements.txt`
+- **Environment variable required:** `OPENAI_API_KEY` must be set in `.env` file
+- **Old file:** `backend/ollama_0220.py` is deprecated but kept for reference
+
+### Why OpenAI?
+- More reliable API with better uptime
+- Access to advanced GPT models (gpt-4o-mini by default)
+- No need to run a local model server
+- Better performance and response quality
+
+### Cost Considerations:
+OpenAI API is a paid service. The `gpt-4o-mini` model is cost-effective for most use cases. Monitor your usage at https://platform.openai.com/usage.
+
+### Switching Back to Ollama (Optional):
+If you need to use Ollama instead:
+1. Change the import in `backend/server.py` from `ollama_0220_openai` to `ollama_0220`
+2. Install and run Ollama locally
+3. No API key needed
 
 ## License
 
